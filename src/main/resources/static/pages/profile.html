@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Profile | BikeShare</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { theme: { extend: { colors: { app: { bg: '#0f0f0f', card: '#1a1a1a', side: '#111111', border: '#2a2a2a', accent: '#00d4aa', primary: '#f0f0f0', secondary: '#9ca3af', muted: '#6b7280' } } } } };
+  </script>
+</head>
+<body>
+  <script src="../js/utils.js"></script>
+  <script>
+    requireAuth();
+    renderAppShell('profile', 'Profile', 'Manage account details, password, and account access.');
+
+    let profile = null;
+    const root = document.getElementById('pageContent');
+
+    root.innerHTML = `
+      <div class="grid gap-6 xl:grid-cols-[1fr_1.2fr]">
+        <section id="profileCard" class="rounded-lg border border-app-border bg-app-card p-5"></section>
+        <section class="space-y-6">
+          <form id="profileForm" class="rounded-lg border border-app-border bg-app-card p-5">
+            <h2 class="mb-4 text-lg font-bold">Edit Profile</h2>
+            <div class="grid gap-4 sm:grid-cols-2">
+              <label><span class="mb-2 block text-sm text-app-secondary">Name</span><input name="name" class="${inputClass()}"></label>
+              <label><span class="mb-2 block text-sm text-app-secondary">Phone Number</span><input name="phoneNumber" class="${inputClass()}"></label>
+              <label class="sm:col-span-2"><span class="mb-2 block text-sm text-app-secondary">Address</span><input name="address" class="${inputClass()}"></label>
+              <label class="sm:col-span-2"><span class="mb-2 block text-sm text-app-secondary">Profile Image URL</span><input name="profileImage" class="${inputClass()}" placeholder="https://example.com/profile.jpg"></label>
+            </div>
+            <button class="mt-5 ${buttonClass()}">Save Profile</button>
+          </form>
+          <form id="passwordForm" class="rounded-lg border border-app-border bg-app-card p-5">
+            <h2 class="mb-4 text-lg font-bold">Change Password</h2>
+            <div class="grid gap-4 sm:grid-cols-3">
+              <input id="currentPassword" type="password" placeholder="Current password" class="${inputClass()}" required>
+              <input id="newPassword" type="password" placeholder="New password" class="${inputClass()}" required>
+              <input id="confirmPassword" type="password" placeholder="Confirm password" class="${inputClass()}" required>
+            </div>
+            <button class="mt-5 ${buttonClass()}">Change Password</button>
+          </form>
+          <section class="rounded-lg border border-red-500/30 bg-red-500/10 p-5">
+            <h2 class="text-lg font-bold text-red-200">Delete Account</h2>
+            <p class="mt-2 text-sm text-red-100/80">This permanently removes your account.</p>
+            <button id="deleteBtn" class="mt-4 ${buttonClass('danger')}">Delete Account</button>
+          </section>
+        </section>
+      </div>
+      ${modalShell('deleteModal', 'Confirm Delete', `<p class="mb-5 text-sm text-app-secondary">Are you sure you want to delete your account?</p><div class="flex gap-2"><button id="confirmDelete" class="${buttonClass('danger')}">Yes, delete</button><button data-close="deleteModal" class="${buttonClass('ghost')}">Keep account</button></div>`)}`;
+
+    function fillForm(user) {
+      profileForm.name.value = user.name || '';
+      profileForm.phoneNumber.value = user.phoneNumber || user.phone || '';
+      profileForm.address.value = user.address || '';
+      profileForm.profileImage.value = user.profileImage || user.profileImageUrl || '';
+    }
+
+    function render(user) {
+      const profileImage = imageSrc(user.profileImage || user.profileImageUrl, DEFAULT_PROFILE_IMAGE);
+      profileCard.innerHTML = `
+        <div class="flex items-center gap-4">
+          <img class="h-20 w-20 rounded-lg border border-app-border object-cover" src="${escapeHtml(profileImage)}" ${imageFallbackAttrs(DEFAULT_PROFILE_IMAGE)} alt="Profile image">
+          <div>
+            <h2 class="text-xl font-bold">${escapeHtml(user.name || 'User')}</h2>
+            <p class="text-sm text-app-secondary">@${escapeHtml(user.username || 'username')}</p>
+            ${getStatusBadge(user.role || getUserRole())}
+          </div>
+        </div>
+        <div class="mt-6 space-y-3 text-sm">
+          <p><span class="text-app-muted">Email:</span> ${escapeHtml(user.email || '')}</p>
+          <p><span class="text-app-muted">Phone:</span> ${escapeHtml(user.phoneNumber || user.phone || '')}</p>
+          <p><span class="text-app-muted">Address:</span> ${escapeHtml(user.address || '')}</p>
+          <p><span class="text-app-muted">Active:</span> ${(user.isActive ?? user.active) === false ? 'No' : 'Yes'}</p>
+          <p><span class="text-app-muted">Member since:</span> ${formatDate(user.createdAt || user.memberSince)}</p>
+        </div>`;
+    }
+
+    async function load() {
+      try {
+        const res = await apiFetch('/api/users/profile');
+        profile = unwrap(res) || {};
+        render(profile);
+        fillForm(profile);
+      } catch (e) {
+        showToast(e.message, 'error');
+      }
+    }
+
+    profileForm.addEventListener('submit', async e => {
+      e.preventDefault();
+      const body = Object.fromEntries(new FormData(e.target));
+      Object.keys(body).forEach(key => {
+        if (typeof body[key] === 'string') body[key] = body[key].trim();
+      });
+      if (body.profileImage) body.profileImage = normalizeImageUrl(body.profileImage);
+      try {
+        await apiFetch('/api/users/profile', { method: 'PUT', body: JSON.stringify(body) });
+        showToast('Profile updated.');
+        load();
+      } catch (ex) {
+        showToast(ex.message, 'error');
+      }
+    });
+
+    passwordForm.addEventListener('submit', async e => {
+      e.preventDefault();
+      if (newPassword.value !== confirmPassword.value) {
+        showToast('Passwords do not match.', 'error');
+        return;
+      }
+      try {
+        await apiFetch('/api/users/profile/change-password', {
+          method: 'PATCH',
+          body: JSON.stringify({
+            currentPassword: currentPassword.value,
+            newPassword: newPassword.value,
+            confirmPassword: confirmPassword.value
+          })
+        });
+        passwordForm.reset();
+        showToast('Password changed.');
+      } catch (ex) {
+        showToast(ex.message, 'error');
+      }
+    });
+
+    deleteBtn.addEventListener('click', () => openModal('deleteModal'));
+    confirmDelete.addEventListener('click', async () => {
+      try {
+        await apiFetch('/api/users/profile', { method: 'DELETE' });
+        showToast('Account deleted.');
+        setTimeout(logout, 700);
+      } catch (ex) {
+        showToast(ex.message, 'error');
+      }
+    });
+
+    load();
+  </script>
+</body>
+</html>

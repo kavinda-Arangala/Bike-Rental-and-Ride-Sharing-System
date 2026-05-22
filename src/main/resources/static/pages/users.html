@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Users | BikeShare</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={theme:{extend:{colors:{app:{bg:'#0f0f0f',card:'#1a1a1a',side:'#111111',border:'#2a2a2a',accent:'#00d4aa',primary:'#f0f0f0',secondary:'#9ca3af',muted:'#6b7280'}}}}}</script>
+</head>
+<body>
+<script src="../js/utils.js"></script>
+<script>
+requireAuth();
+renderAppShell('users','Users','Admin CRUD for rider and admin accounts.');
+const root = document.getElementById('pageContent');
+let users = [];
+let selectedUser = null;
+
+function isActive(user) { return user.isActive ?? user.active ?? true; }
+function userRole(user) { return String(user.role || 'RIDER').toUpperCase(); }
+function userMatches(user) {
+  const q = document.getElementById('searchUser')?.value?.toLowerCase() || '';
+  const role = document.getElementById('roleFilter')?.value || 'ALL';
+  const status = document.getElementById('statusFilter')?.value || 'ALL';
+  const hay = `${user.name || ''} ${user.email || ''} ${user.id || ''}`.toLowerCase();
+  if (q && !hay.includes(q)) return false;
+  if (role !== 'ALL' && userRole(user) !== role) return false;
+  if (status === 'ACTIVE' && !isActive(user)) return false;
+  if (status === 'INACTIVE' && isActive(user)) return false;
+  return true;
+}
+
+function renderUsers() {
+  const filtered = users.filter(userMatches);
+  document.getElementById('stats').innerHTML = [
+    card('Total Users', users.length, 'All accounts'),
+    card('Riders', users.filter(u => userRole(u) === 'RIDER').length, 'Customer accounts'),
+    card('Users', users.filter(u => userRole(u) === 'USER').length, 'Ride-share passengers'),
+    card('Admins', users.filter(u => userRole(u) === 'ADMIN').length, 'Admin accounts'),
+    card('Inactive', users.filter(u => !isActive(u)).length, 'Deactivated accounts')
+  ].join('');
+  document.getElementById('usersTable').innerHTML = filtered.length ? `
+    <div class="overflow-x-auto rounded-lg border border-app-border">
+      <table class="w-full text-left text-sm">
+        <thead class="bg-[#121212] text-app-secondary">
+          <tr><th class="p-3">ID</th><th class="p-3">Name</th><th class="p-3">Email</th><th class="p-3">Role</th><th class="p-3">Status</th><th class="p-3">Joined</th><th class="p-3">Actions</th></tr>
+        </thead>
+        <tbody>${filtered.map(u => `
+          <tr class="border-t border-app-border odd:bg-white/[0.02]">
+            <td class="p-3 text-app-muted">#${escapeHtml(u.id)}</td>
+            <td class="p-3 font-semibold">${escapeHtml(u.name || 'Unnamed')}</td>
+            <td class="p-3 text-app-secondary">${escapeHtml(u.email || '')}</td>
+            <td class="p-3">${getStatusBadge(userRole(u))}</td>
+            <td class="p-3">${getStatusBadge(isActive(u) ? 'ACTIVE' : 'INACTIVE')}</td>
+            <td class="p-3 text-app-secondary">${formatDate(u.createdAt)}</td>
+            <td class="p-3"><div class="flex flex-wrap gap-2">
+              <button data-view="${u.id}" class="${buttonClass('ghost')}">View</button>
+              <button data-role="${u.id}" data-next-role="${userRole(u) === 'ADMIN' ? 'RIDER' : 'ADMIN'}" class="${buttonClass('ghost')}">${userRole(u) === 'ADMIN' ? 'Make Rider' : 'Make Admin'}</button>
+              ${isActive(u) ? `<button data-deactivate="${u.id}" class="${buttonClass('danger')}">Deactivate</button>` : `<button data-activate="${u.id}" class="${buttonClass()}">Activate</button>`}
+              <button data-delete="${u.id}" class="${buttonClass('danger')}">Delete</button>
+            </div></td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>` : emptyState('No users match the current filters.');
+}
+
+async function loadUsers() {
+  try {
+    users = listFrom(await apiFetch('/api/users/admin/all'));
+    renderUsers();
+  } catch (error) { showToast(error.message, 'error'); }
+}
+
+if (getUserRole() !== 'ADMIN') {
+  root.innerHTML = `<section class="rounded-lg border border-yellow-400/30 bg-yellow-400/10 p-6"><h2 class="text-xl font-bold text-yellow-100">Admin access required</h2><p class="mt-2 text-sm text-yellow-100/80">Only ADMIN users can manage accounts.</p></section>`;
+} else {
+  root.innerHTML = `
+    <section id="stats" class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"></section>
+    <section class="mt-6 rounded-lg border border-app-border bg-app-card p-5">
+      <div class="mb-5 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+        <div class="grid flex-1 gap-3 sm:grid-cols-3">
+          <label><span class="mb-2 block text-sm text-app-secondary">Search</span><input id="searchUser" class="${inputClass()}" placeholder="Name, email, ID"></label>
+          <label><span class="mb-2 block text-sm text-app-secondary">Role</span><select id="roleFilter" class="${inputClass()}"><option>ALL</option><option>USER</option><option>RIDER</option><option>ADMIN</option></select></label>
+          <label><span class="mb-2 block text-sm text-app-secondary">Status</span><select id="statusFilter" class="${inputClass()}"><option>ALL</option><option>ACTIVE</option><option>INACTIVE</option></select></label>
+        </div>
+        <button id="openCreate" class="${buttonClass()}">Create User</button>
+      </div>
+      <div id="usersTable"></div>
+    </section>
+    ${modalShell('createUserModal','Create User',`<form id="createUserForm" class="grid gap-4 sm:grid-cols-2">
+      <label><span class="mb-2 block text-sm text-app-secondary">Name</span><input name="name" class="${inputClass()}" required></label>
+      <label><span class="mb-2 block text-sm text-app-secondary">Username</span><input name="username" class="${inputClass()}" required></label>
+      <label><span class="mb-2 block text-sm text-app-secondary">Email</span><input name="email" type="email" class="${inputClass()}" required></label>
+      <label><span class="mb-2 block text-sm text-app-secondary">Role</span><select name="role" class="${inputClass()}"><option>USER</option><option>RIDER</option><option>ADMIN</option></select></label>
+      <label class="sm:col-span-2"><span class="mb-2 block text-sm text-app-secondary">Password</span><input name="password" type="password" class="${inputClass()}" required></label>
+      <p class="text-xs text-app-muted sm:col-span-2">Password must include uppercase, lowercase, digit, special character, and 8+ characters.</p>
+      <button class="${buttonClass()} sm:col-span-2">Create User</button>
+    </form>`)}
+    ${modalShell('userDetailModal','User Details',`<div id="userDetail" class="space-y-3 text-sm"></div>`)}
+    ${modalShell('deleteUserModal','Delete User',`<p class="mb-5 text-sm text-app-secondary">This permanently deletes the selected user.</p><div class="flex gap-2"><button id="confirmDeleteUser" class="${buttonClass('danger')}">Delete</button><button data-close="deleteUserModal" class="${buttonClass('ghost')}">Cancel</button></div>`)}
+  `;
+  ['searchUser','roleFilter','statusFilter'].forEach(id => document.getElementById(id).addEventListener('input', renderUsers));
+  document.getElementById('openCreate').addEventListener('click', () => openModal('createUserModal'));
+  document.getElementById('createUserForm').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const body = Object.fromEntries(new FormData(event.target));
+    const selectedRole = body.role || 'RIDER';
+    delete body.role;
+    if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/.test(body.password)) {
+      showToast('Password does not meet the strength rules.', 'error');
+      return;
+    }
+    try {
+      const created = unwrap(await apiFetch('/api/auth/register', { method: 'POST', body: JSON.stringify(body) }));
+      if (selectedRole !== 'RIDER') {
+        await apiFetch(`/api/users/admin/${created.userId}/role`, {
+          method: 'PATCH',
+          body: JSON.stringify({ role: selectedRole })
+        });
+      }
+      closeModal('createUserModal');
+      event.target.reset();
+      showToast('User created.');
+      loadUsers();
+    } catch (error) { showToast(error.message, 'error'); }
+  });
+  document.addEventListener('click', async (event) => {
+    const id = event.target.dataset.view || event.target.dataset.role || event.target.dataset.activate || event.target.dataset.deactivate || event.target.dataset.delete;
+    if (!id) return;
+    try {
+      if (event.target.dataset.view) {
+        const user = unwrap(await apiFetch(`/api/users/admin/${id}`));
+        document.getElementById('userDetail').innerHTML = `
+          <p><span class="text-app-muted">ID:</span> #${escapeHtml(user.id)}</p>
+          <p><span class="text-app-muted">Name:</span> ${escapeHtml(user.name || '')}</p>
+          <p><span class="text-app-muted">Email:</span> ${escapeHtml(user.email || '')}</p>
+          <p><span class="text-app-muted">Phone:</span> ${escapeHtml(user.phoneNumber || '')}</p>
+          <p><span class="text-app-muted">Address:</span> ${escapeHtml(user.address || '')}</p>
+          <p><span class="text-app-muted">Role:</span> ${getStatusBadge(userRole(user))}</p>
+          <p><span class="text-app-muted">Status:</span> ${getStatusBadge(isActive(user) ? 'ACTIVE' : 'INACTIVE')}</p>
+          <p><span class="text-app-muted">Created:</span> ${formatDate(user.createdAt)}</p>
+          <p><span class="text-app-muted">Updated:</span> ${formatDate(user.updatedAt)}</p>`;
+        openModal('userDetailModal');
+      }
+      if (event.target.dataset.role) {
+        await apiFetch(`/api/users/admin/${id}/role`, {
+          method: 'PATCH',
+          body: JSON.stringify({ role: event.target.dataset.nextRole })
+        });
+        showToast('User role updated.');
+        loadUsers();
+      }
+      if (event.target.dataset.activate) { await apiFetch(`/api/users/admin/${id}/activate`, { method: 'PATCH' }); showToast('User activated.'); loadUsers(); }
+      if (event.target.dataset.deactivate) { await apiFetch(`/api/users/admin/${id}/deactivate`, { method: 'PATCH' }); showToast('User deactivated.'); loadUsers(); }
+      if (event.target.dataset.delete) { selectedUser = id; openModal('deleteUserModal'); }
+    } catch (error) { showToast(error.message, 'error'); }
+  });
+  document.getElementById('confirmDeleteUser').addEventListener('click', async () => {
+    try {
+      await apiFetch(`/api/users/admin/${selectedUser}`, { method: 'DELETE' });
+      closeModal('deleteUserModal');
+      showToast('User deleted.');
+      loadUsers();
+    } catch (error) { showToast(error.message, 'error'); }
+  });
+  loadUsers();
+}
+</script>
+</body>
+</html>

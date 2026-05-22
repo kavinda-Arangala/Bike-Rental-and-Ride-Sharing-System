@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Ride Sharing | BikeShare</title><script src="https://cdn.tailwindcss.com"></script><script>tailwind.config={theme:{extend:{colors:{app:{bg:'#0f0f0f',card:'#1a1a1a',side:'#111111',border:'#2a2a2a',accent:'#00d4aa',primary:'#f0f0f0',secondary:'#9ca3af',muted:'#6b7280'}}}}}</script></head>
+<body><script src="../js/utils.js"></script><script>
+requireAuth();
+if (getUserRole() === 'BIKE_OWNER') {
+  location.href = 'dashboard.html';
+  throw new Error('Bike owners do not use ride sharing');
+}
+renderAppShell('ride-sharing','Ride Sharing','Create shared rides, join as a passenger, pay, complete, and review.');
+let available = [], created = [], bookings = [], creatorBookings = [], rentals = [], adminRows = [], selectedBooking = null, chatBookingId = null, chatTimer = null;
+const root = document.getElementById('pageContent');
+root.innerHTML = `
+  <div class="mb-5 flex flex-wrap gap-3"><button id="newSharedRideBtn" class="${buttonClass()}">Create Ride</button><button id="refreshRide" class="${buttonClass('ghost')}">Refresh</button></div>
+  <section id="adminRideSection" class="mb-6 hidden rounded-lg border border-app-border bg-app-card p-5">
+    <h2 class="mb-4 text-lg font-bold">Admin Ride Share History</h2>
+    <div class="grid gap-3 sm:grid-cols-3"><select id="adminRideStatus" class="${inputClass()}"><option value="ALL">ALL</option><option>OPEN</option><option>FULL</option><option>COMPLETED</option><option>CANCELLED</option></select><button id="loadAdminRide" class="${buttonClass()}">Load</button></div>
+    <div id="adminRideList" class="mt-5 grid gap-4 xl:grid-cols-2"></div>
+  </section>
+  <div class="grid gap-6 xl:grid-cols-3">
+    <section><h2 class="mb-4 text-lg font-bold">Available Rides</h2><div id="availableRides" class="space-y-4"></div></section>
+    <section><h2 class="mb-4 text-lg font-bold">My Created Rides</h2><div id="createdRides" class="space-y-4"></div></section>
+    <section><h2 class="mb-4 text-lg font-bold">My Joined Rides</h2><div id="bookingRides" class="space-y-4"></div></section>
+  </div>
+  <section id="creatorBookingSection" class="mt-8 hidden"><h2 class="mb-4 text-lg font-bold">My Ride Passengers</h2><div id="creatorBookingRides" class="grid gap-4 xl:grid-cols-2"></div></section>
+  ${modalShell('newSharedRideModal','Create Shared Ride',`<form id="newSharedRideForm" class="space-y-4"><select id="sharedRentalId" class="${inputClass()}" required></select><input id="pickupAddress" class="${inputClass()}" placeholder="Pickup address" required><input id="dropoffAddress" class="${inputClass()}" placeholder="Dropoff address" required><input id="rideTime" type="datetime-local" class="${inputClass()}" required><input id="ridePrice" type="number" min="1" step="0.01" class="${inputClass()}" placeholder="Passenger price" required><input id="availableSeats" type="number" min="1" max="10" class="${inputClass()}" placeholder="Available seats" required><button class="${buttonClass()}">Create Ride</button></form>`)}
+  ${modalShell('sharedReviewModal','Review Shared Ride',`<form id="sharedReviewForm" class="space-y-4"><select id="sharedRating" class="${inputClass()}"><option value="5">5 Stars</option><option value="4">4 Stars</option><option value="3">3 Stars</option><option value="2">2 Stars</option><option value="1">1 Star</option></select><textarea id="sharedReviewText" class="${inputClass()}" rows="4" placeholder="Ride experience"></textarea><button class="${buttonClass()}">Submit Review</button></form>`)}
+  <aside id="chatPanel" class="fixed right-0 top-0 z-[75] hidden h-full w-full max-w-md border-l border-app-border bg-app-card shadow-2xl">
+    <div class="flex h-full flex-col">
+      <div class="flex items-center justify-between border-b border-app-border p-4">
+        <div><h2 id="chatTitle" class="font-bold">Shared Ride Chat</h2><p id="chatHint" class="text-xs text-app-secondary"></p></div>
+        <button id="closeChat" class="${buttonClass('ghost')}">Close</button>
+      </div>
+      <div id="messages" class="flex-1 space-y-3 overflow-y-auto p-4"></div>
+      <form id="chatForm" class="flex gap-2 border-t border-app-border p-4">
+        <input id="chatContent" class="${inputClass()}" placeholder="Type message" required>
+        <button class="${buttonClass()}">Send</button>
+      </form>
+    </div>
+  </aside>
+`;
+if (getUserRole() === 'ADMIN') adminRideSection.classList.remove('hidden');
+function rideCard(r, admin = false) {
+  return `<article class="rounded-lg border border-app-border bg-app-card p-5"><div class="flex justify-between gap-3"><div><h3 class="font-bold">${escapeHtml(r.bikeTitle || 'Shared ride')}</h3><p class="text-sm text-app-secondary">${escapeHtml(r.pickupAddress || '')} -> ${escapeHtml(r.dropoffAddress || '')}</p></div>${getStatusBadge(r.status)}</div><div class="mt-4 space-y-1 text-sm text-app-secondary"><p>${formatDate(r.rideTime)}</p><p>Rider: ${escapeHtml(r.creatorName || '')}</p><p>${formatCurrency(r.price)} - Seats: ${escapeHtml(r.availableSeats ?? 0)}</p></div><div class="mt-4 flex flex-wrap gap-2">${!admin && String(r.status).toUpperCase() === 'OPEN' && String(r.creatorId) !== String(currentUserId()) ? `<button data-join="${r.id}" class="${buttonClass()}">Join Ride</button>` : ''}${!admin && String(r.creatorId) === String(currentUserId()) && !['COMPLETED','CANCELLED'].includes(String(r.status).toUpperCase()) ? `<button data-complete-ride="${r.id}" class="${buttonClass('ghost')}">Close Ride</button>` : ''}</div></article>`;
+}
+function bookingCard(b) {
+  const status = String(b.status).toUpperCase();
+  const paid = String(b.paymentStatus).toUpperCase() === 'SUCCESS';
+  return `<article class="rounded-lg border border-app-border bg-app-card p-5"><div class="flex justify-between gap-3"><div><h3 class="font-bold">${escapeHtml(b.bikeTitle || 'Joined ride')}</h3><p class="text-sm text-app-secondary">${escapeHtml(b.pickupAddress || '')} -> ${escapeHtml(b.dropoffAddress || '')}</p></div>${getStatusBadge(b.status)}</div><div class="mt-4 space-y-1 text-sm text-app-secondary"><p>${formatDate(b.rideTime)}</p><p>${formatCurrency(b.price)} - Payment: ${escapeHtml(b.paymentStatus || '')}</p>${!paid ? '<p class="text-yellow-200">Pay this ride from the Payments page before completing it.</p>' : ''}${b.review ? `<p>Review: ${escapeHtml(b.rating || '')} ${escapeHtml(b.review)}</p>` : ''}</div><div class="mt-4 flex flex-wrap gap-2"><button data-chat-booking="${b.id}" class="${buttonClass('ghost')}">Chat</button>${!paid ? `<a href="payments.html" class="${buttonClass()}">Go to Payments</a>` : ''}${paid && status !== 'COMPLETED' ? `<button data-complete-booking="${b.id}" class="${buttonClass()}">Complete Ride</button>` : ''}${status === 'COMPLETED' && !b.review ? `<button data-review-booking="${b.id}" class="${buttonClass('ghost')}">Review</button>` : ''}</div></article>`;
+}
+function creatorBookingCard(b) {
+  return `<article class="rounded-lg border border-app-border bg-app-card p-5"><div class="flex justify-between gap-3"><div><h3 class="font-bold">${escapeHtml(b.passengerName || 'Passenger')}</h3><p class="text-sm text-app-secondary">${escapeHtml(b.bikeTitle || 'Shared ride')}</p></div>${getStatusBadge(b.paymentStatus || b.status)}</div><div class="mt-4 space-y-1 text-sm text-app-secondary"><p>${escapeHtml(b.pickupAddress || '')} -> ${escapeHtml(b.dropoffAddress || '')}</p><p>${formatDate(b.rideTime)} - ${formatCurrency(b.price)}</p></div><div class="mt-4"><button data-chat-booking="${b.id}" class="${buttonClass()}">Chat User</button></div></article>`;
+}
+function render() {
+  availableRides.innerHTML = available.length ? available.map(r => rideCard(r)).join('') : emptyState('No available shared rides.');
+  createdRides.innerHTML = created.length ? created.map(r => rideCard(r)).join('') : emptyState('No rides created yet. Start a rental, then create a shared ride.');
+  bookingRides.innerHTML = bookings.length ? bookings.map(bookingCard).join('') : emptyState('No joined rides yet.');
+  creatorBookingSection.classList.toggle('hidden', getUserRole() === 'USER');
+  creatorBookingRides.innerHTML = creatorBookings.length ? creatorBookings.map(creatorBookingCard).join('') : emptyState('No passengers joined your rides yet.');
+  if (getUserRole() === 'ADMIN') adminRideList.innerHTML = adminRows.length ? adminRows.map(r => rideCard(r, true)).join('') : emptyState('No shared ride history.');
+}
+async function load() {
+  try {
+    const role = getUserRole();
+    const [availableRes, createdRes, bookingsRes, creatorBookingsRes, rentalsRes] = await Promise.all([
+      apiFetch('/api/shared-rides/available'),
+      role === 'USER' ? Promise.resolve({ data: [] }) : apiFetch('/api/shared-rides/my-created'),
+      apiFetch('/api/shared-rides/my-bookings'),
+      role === 'USER' ? Promise.resolve({ data: [] }) : apiFetch('/api/shared-rides/created-bookings'),
+      role === 'USER' ? Promise.resolve({ data: [] }) : apiFetch('/api/rentals/my')
+    ]);
+    available = listFrom(availableRes);
+    created = listFrom(createdRes);
+    bookings = listFrom(bookingsRes);
+    creatorBookings = listFrom(creatorBookingsRes);
+    rentals = listFrom(rentalsRes);
+    sharedRentalId.innerHTML = rentals.filter(r => String(r.status).toUpperCase() === 'ACTIVE').map(r => `<option value="${r.id}">${escapeHtml(r.bikeTitle || 'Rental')} - ${escapeHtml(r.status)}</option>`).join('') || '<option value="">No active rentals</option>';
+    if (role === 'USER') newSharedRideBtn.classList.add('hidden');
+    if (role === 'ADMIN') await loadAdminRides();
+    render();
+  } catch(e) { showToast(e.message,'error'); }
+}
+async function loadAdminRides() {
+  const status = adminRideStatus.value;
+  adminRows = listFrom(await apiFetch(status === 'ALL' ? '/api/shared-rides/admin/all' : `/api/shared-rides/admin/status/${status}`));
+  render();
+}
+newSharedRideBtn.addEventListener('click', () => openModal('newSharedRideModal'));
+refreshRide.addEventListener('click', load);
+newSharedRideForm.addEventListener('submit', async event => {
+  event.preventDefault();
+  try {
+    await apiFetch('/api/shared-rides', { method:'POST', body: JSON.stringify({ rentalId: Number(sharedRentalId.value), pickupAddress: pickupAddress.value, dropoffAddress: dropoffAddress.value, rideTime: toIsoLocal(rideTime.value), price: Number(ridePrice.value), availableSeats: Number(availableSeats.value) }) });
+    closeModal('newSharedRideModal');
+    showToast('Shared ride created.');
+    load();
+  } catch(e) { showToast(e.message,'error'); }
+});
+document.addEventListener('click', async event => {
+  try {
+    if (event.target.dataset.join) { await apiFetch(`/api/shared-rides/${event.target.dataset.join}/join`, { method:'POST' }); showToast('Ride joined. Pay from Payments before completing.'); load(); }
+    if (event.target.dataset.completeBooking) { await apiFetch(`/api/shared-rides/bookings/${event.target.dataset.completeBooking}/complete`, { method:'PATCH' }); showToast('Shared ride completed.'); load(); }
+    if (event.target.dataset.completeRide) { await apiFetch(`/api/shared-rides/${event.target.dataset.completeRide}/complete`, { method:'PATCH' }); showToast('Shared ride closed.'); load(); }
+    if (event.target.dataset.reviewBooking) { selectedBooking = event.target.dataset.reviewBooking; openModal('sharedReviewModal'); }
+    if (event.target.dataset.chatBooking) openChat(event.target.dataset.chatBooking);
+  } catch(e) { showToast(e.message,'error'); }
+});
+async function loadMessages() {
+  if (!chatBookingId) return;
+  try {
+    const items = listFrom(await apiFetch(`/api/shared-rides/bookings/${chatBookingId}/messages`));
+    const me = String(currentUserId());
+    messages.innerHTML = items.map(m => {
+      const mine = String(m.senderId) === me || m.mine;
+      return `<div class="flex ${mine ? 'justify-end' : 'justify-start'}"><div class="max-w-[80%] rounded-lg ${mine ? 'bg-app-accent text-black' : 'bg-[#242424] text-app-primary'} p-3"><p class="text-xs opacity-75">${escapeHtml(m.senderName || m.senderUsername || 'User')} - ${formatDate(m.sentAt)}</p><p class="mt-1 text-sm">${escapeHtml(m.content || '')}</p></div></div>`;
+    }).join('') || emptyState('No messages yet.');
+    messages.scrollTop = messages.scrollHeight;
+  } catch(e) { showToast(e.message,'error'); }
+}
+function openChat(bookingId) {
+  chatBookingId = bookingId;
+  chatHint.textContent = `Booking #${bookingId}`;
+  chatPanel.classList.remove('hidden');
+  loadMessages();
+  clearInterval(chatTimer);
+  chatTimer = setInterval(loadMessages, 10000);
+}
+closeChat.addEventListener('click', () => { chatPanel.classList.add('hidden'); clearInterval(chatTimer); });
+chatForm.addEventListener('submit', async event => {
+  event.preventDefault();
+  try {
+    await apiFetch(`/api/shared-rides/bookings/${chatBookingId}/messages`, { method:'POST', body: JSON.stringify({ content: chatContent.value }) });
+    chatContent.value = '';
+    loadMessages();
+  } catch(e) { showToast(e.message,'error'); }
+});
+sharedReviewForm.addEventListener('submit', async event => {
+  event.preventDefault();
+  try {
+    await apiFetch(`/api/shared-rides/bookings/${selectedBooking}/review`, { method:'POST', body: JSON.stringify({ rating: Number(sharedRating.value), review: sharedReviewText.value }) });
+    closeModal('sharedReviewModal');
+    showToast('Review submitted.');
+    load();
+  } catch(e) { showToast(e.message,'error'); }
+});
+if (getUserRole() === 'ADMIN') loadAdminRide.addEventListener('click', () => loadAdminRides().catch(e => showToast(e.message,'error')));
+load();
+</script></body></html>

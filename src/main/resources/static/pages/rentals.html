@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Rentals | BikeShare</title><script src="https://cdn.tailwindcss.com"></script><script>tailwind.config={theme:{extend:{colors:{app:{bg:'#0f0f0f',card:'#1a1a1a',side:'#111111',border:'#2a2a2a',accent:'#00d4aa',primary:'#f0f0f0',secondary:'#9ca3af',muted:'#6b7280'}}}}}</script></head>
+<body><script src="../js/utils.js"></script><script>
+requireAuth();
+renderAppShell('rentals','Rentals','Lifecycle actions, reviews, admin filters, and revenue lookup.');
+let rentals = [], selected = null, tab = 'ALL', chatId = null, chatTimer = null;
+const root = document.getElementById('pageContent');
+root.innerHTML = `
+  <section id="adminPanel" class="mb-6 hidden rounded-lg border border-app-border bg-app-card p-5">
+    <h2 class="mb-4 text-lg font-bold">Admin Rental Tools</h2>
+    <div class="grid gap-3 lg:grid-cols-5">
+      <select id="adminMode" class="${inputClass()}"><option value="all">All rentals</option><option value="status">By status</option><option value="bike">By bike ID</option><option value="user">By user ID</option></select>
+      <select id="adminStatusValue" class="${inputClass()}"><option>PENDING</option><option>PAID</option><option>CONFIRMED</option><option>ACTIVE</option><option>COMPLETED</option><option>CANCELLED</option></select>
+      <input id="adminEntityId" type="number" class="${inputClass()}" placeholder="Bike/User ID">
+      <button id="adminLoad" class="${buttonClass()}">Load</button>
+      <button id="adminRevenue" class="${buttonClass('ghost')}">Total Revenue</button>
+    </div>
+    <div class="mt-4 grid gap-3 lg:grid-cols-4">
+      <input id="revenueStart" type="datetime-local" class="${inputClass()}">
+      <input id="revenueEnd" type="datetime-local" class="${inputClass()}">
+      <button id="rangeRevenue" class="${buttonClass('ghost')}">Revenue Range</button>
+      <div id="revenueBox" class="rounded-lg border border-app-border bg-[#121212] p-3 text-sm text-app-secondary">Revenue results appear here.</div>
+    </div>
+  </section>
+  <div class="mb-5 flex flex-wrap gap-2" id="tabs"></div>
+  <section id="list" class="grid gap-4 xl:grid-cols-2"></section>
+  ${modalShell('cancelModal','Cancel Rental',`<form id="cancelForm" class="space-y-4"><textarea id="cancelReason" class="${inputClass()}" rows="4" placeholder="Reason" required></textarea><button class="${buttonClass('danger')}">Cancel Rental</button></form>`)}
+  ${modalShell('completeModal','Complete Rental',`<form id="completeForm" class="space-y-4"><input id="distanceKm" type="number" min="0" step="0.1" class="${inputClass()}" placeholder="Distance km" required><button class="${buttonClass()}">Complete Rental</button></form>`)}
+  ${modalShell('reviewModal','Leave Review',`<form id="reviewForm" class="space-y-4"><select id="rating" class="${inputClass()}"><option value="5">5 Stars</option><option value="4">4 Stars</option><option value="3">3 Stars</option><option value="2">2 Stars</option><option value="1">1 Star</option></select><textarea id="reviewText" class="${inputClass()}" rows="4" placeholder="Review text"></textarea><button class="${buttonClass()}">Submit Review</button></form>`)}
+  ${modalShell('rentalDetailModal','Rental Details',`<div id="rentalDetail" class="space-y-2 text-sm"></div>`)}
+  <aside id="chatPanel" class="fixed right-0 top-0 z-[75] hidden h-full w-full max-w-md border-l border-app-border bg-app-card shadow-2xl">
+    <div class="flex h-full flex-col">
+      <div class="flex items-center justify-between border-b border-app-border p-4">
+        <div><h2 id="chatTitle" class="font-bold">Owner Chat</h2><p id="chatHint" class="text-xs text-app-secondary">Chat before payment</p></div>
+        <button id="closeChat" class="${buttonClass('ghost')}">Close</button>
+      </div>
+      <div id="messages" class="flex-1 space-y-3 overflow-y-auto p-4"></div>
+      <form id="chatForm" class="flex gap-2 border-t border-app-border p-4">
+        <input id="chatContent" class="${inputClass()}" placeholder="Message rider or owner" required>
+        <button class="${buttonClass()}">Send</button>
+      </form>
+    </div>
+  </aside>
+`;
+['ALL','PENDING','PAID','CONFIRMED','ACTIVE','COMPLETED','CANCELLED'].forEach(t => tabs.insertAdjacentHTML('beforeend', `<button data-tab="${t}" class="tab rounded-lg border px-4 py-2 text-sm ${t === tab ? 'border-app-accent bg-app-accent text-black' : 'border-app-border text-app-secondary'}">${t}</button>`));
+if (getUserRole() === 'ADMIN') document.getElementById('adminPanel').classList.remove('hidden');
+function reviewed(r) { return r.review || r.reviewText || r.rating; }
+function filtered() { return tab === 'ALL' ? rentals : rentals.filter(r => String(r.status).toUpperCase() === tab); }
+function actionHtml(r) {
+  const status = String(r.status).toUpperCase();
+  const paid = r.paid === true || String(r.paymentStatus).toUpperCase() === 'SUCCESS';
+  const role = getUserRole();
+  let html = `<button data-act="view" data-id="${r.id}" class="${buttonClass('ghost')}">View</button>`;
+  if (r.chatId && ['PENDING','PAID','CONFIRMED','ACTIVE'].includes(status)) html += `<button data-act="chat" data-id="${r.id}" class="${buttonClass('ghost')}">Chat</button>`;
+  if (status === 'PENDING' && !paid && role !== 'BIKE_OWNER') html += `<a href="payments.html" class="${buttonClass()}">Pay Now</a><button type="button" class="${buttonClass('ghost')} cursor-not-allowed opacity-50" disabled>Start after payment</button>`;
+  if (status === 'PAID' && ['BIKE_OWNER','ADMIN'].includes(role)) html += `<button data-act="confirm" data-id="${r.id}" class="${buttonClass()}">Confirm Rent</button>`;
+  if (status === 'PAID' && !['BIKE_OWNER','ADMIN'].includes(role)) html += `<button type="button" class="${buttonClass('ghost')} cursor-not-allowed opacity-50" disabled>Waiting owner confirmation</button>`;
+  if (status === 'CONFIRMED' && role !== 'BIKE_OWNER') html += `<button data-act="start" data-id="${r.id}" class="${buttonClass()}">Start</button>`;
+  if (status === 'CONFIRMED' && role === 'BIKE_OWNER') html += `<button type="button" class="${buttonClass('ghost')} cursor-not-allowed opacity-50" disabled>Ready for rider start</button>`;
+  if (['PENDING','PAID','CONFIRMED'].includes(status)) html += `<button data-act="cancel" data-id="${r.id}" class="${buttonClass('danger')}">Cancel</button>`;
+  if (status === 'ACTIVE' && role !== 'BIKE_OWNER') html += `<button data-act="complete" data-id="${r.id}" class="${buttonClass()}">Complete</button>`;
+  if (status === 'COMPLETED' && !reviewed(r) && role !== 'BIKE_OWNER') html += `<button data-act="review" data-id="${r.id}" class="${buttonClass()}">Review</button>`;
+  return html;
+}
+function render() {
+  const items = filtered();
+  list.innerHTML = items.length ? items.map(r => `
+    <article class="rounded-lg border border-app-border bg-app-card p-5">
+      <div class="flex items-start justify-between gap-3"><div><h2 class="text-lg font-bold">${escapeHtml(r.bikeTitle || 'Bike')}</h2><p class="text-sm text-app-secondary">${escapeHtml(r.bikeType || 'Type')} - ${escapeHtml(r.bikeLocation || 'Location')} - Owner: ${escapeHtml(r.ownerName || r.ownerId || '')}</p></div>${getStatusBadge(r.status)}</div>
+      <div class="mt-4 grid gap-3 text-sm sm:grid-cols-2"><p><span class="text-app-muted">Planned:</span> ${formatDate(r.plannedStartTime)}</p><p><span class="text-app-muted">End:</span> ${formatDate(r.plannedEndTime)}</p><p><span class="text-app-muted">Estimated:</span> ${formatCurrency(r.estimatedFare)}</p><p><span class="text-app-muted">Payment:</span> ${escapeHtml(r.paymentStatus || (r.paid ? 'SUCCESS' : 'UNPAID'))}</p></div>
+      ${reviewed(r) ? `<div class="mt-4 rounded-lg border border-app-border bg-[#121212] p-3 text-sm text-app-secondary">Rating: ${escapeHtml(r.rating || '')} ${escapeHtml(r.review || r.reviewText || '')}</div>` : ''}
+      ${r.cancellationReason ? `<p class="mt-3 text-sm text-red-200">Cancelled: ${escapeHtml(r.cancellationReason)}</p>` : ''}
+      <div class="mt-5 flex flex-wrap gap-2">${actionHtml(r)}</div>
+    </article>`).join('') : emptyState('No rentals found for this view.');
+}
+function endpointForAdmin() {
+  const mode = adminMode.value;
+  if (mode === 'status') return `/api/rentals/admin/status/${adminStatusValue.value}`;
+  if (mode === 'bike') return `/api/rentals/admin/bike/${adminEntityId.value}`;
+  if (mode === 'user') return `/api/rentals/admin/user/${adminEntityId.value}`;
+  return '/api/rentals/admin/all';
+}
+async function load(path) {
+  try {
+    const defaultPath = getUserRole() === 'ADMIN' ? '/api/rentals/admin/all' : (getUserRole() === 'BIKE_OWNER' ? '/api/rentals/owner' : '/api/rentals/my');
+    rentals = listFrom(await apiFetch(path || defaultPath));
+    render();
+  } catch (error) { showToast(error.message, 'error'); }
+}
+tabs.addEventListener('click', event => {
+  if (!event.target.dataset.tab) return;
+  tab = event.target.dataset.tab;
+  document.querySelectorAll('.tab').forEach(btn => btn.className = `tab rounded-lg border px-4 py-2 text-sm ${btn.dataset.tab === tab ? 'border-app-accent bg-app-accent text-black' : 'border-app-border text-app-secondary'}`);
+  render();
+});
+document.addEventListener('click', async event => {
+  const act = event.target.dataset.act;
+  if (!act) return;
+  selected = rentals.find(r => String(r.id) === String(event.target.dataset.id));
+  try {
+    if (act === 'view') {
+      rentalDetail.innerHTML = Object.entries(selected).map(([k,v]) => `<p><span class="text-app-muted">${escapeHtml(k)}:</span> ${escapeHtml(v ?? '')}</p>`).join('');
+      openModal('rentalDetailModal');
+    }
+    if (act === 'confirm') { await apiFetch(`/api/rentals/${selected.id}/confirm`, { method: 'PATCH' }); showToast('Rental confirmed.'); load(); }
+    if (act === 'start') { await apiFetch(`/api/rentals/${selected.id}/start`, { method: 'PATCH' }); showToast('Rental started.'); load(); }
+    if (act === 'chat') openChat(selected);
+    if (act === 'cancel') openModal('cancelModal');
+    if (act === 'complete') openModal('completeModal');
+    if (act === 'review') openModal('reviewModal');
+  } catch (error) { showToast(error.message, 'error'); }
+});
+async function loadMessages() {
+  if (!chatId) return;
+  try {
+    const items = listFrom(await apiFetch(`/api/ride-shares/${chatId}/messages`));
+    const me = String(currentUserId());
+    messages.innerHTML = items.map(m => {
+      const mine = String(m.senderId) === me || m.mine;
+      return `<div class="flex ${mine ? 'justify-end' : 'justify-start'}"><div class="max-w-[80%] rounded-lg ${mine ? 'bg-app-accent text-black' : 'bg-[#242424] text-app-primary'} p-3"><p class="text-xs opacity-75">${escapeHtml(m.senderName || m.senderUsername || 'User')} - ${formatDate(m.sentAt)}</p><p class="mt-1 text-sm">${escapeHtml(m.content || '')}</p></div></div>`;
+    }).join('') || emptyState('No messages yet.');
+    messages.scrollTop = messages.scrollHeight;
+    updateUnreadBadge();
+  } catch(e) { showToast(e.message, 'error'); }
+}
+function openChat(rental) {
+  if (!rental.chatId) {
+    showToast('Chat is not ready for this rental yet.', 'error');
+    return;
+  }
+  chatId = rental.chatId;
+  chatTitle.textContent = `${rental.bikeTitle || 'Bike'} Chat`;
+  chatHint.textContent = rental.paid ? 'Payment completed' : 'Chat with the owner before payment';
+  chatPanel.classList.remove('hidden');
+  loadMessages();
+  clearInterval(chatTimer);
+  chatTimer = setInterval(loadMessages, 10000);
+}
+closeChat.addEventListener('click', () => { chatPanel.classList.add('hidden'); clearInterval(chatTimer); });
+chatForm.addEventListener('submit', async event => {
+  event.preventDefault();
+  try {
+    await apiFetch(`/api/ride-shares/${chatId}/messages`, { method:'POST', body: JSON.stringify({ content: chatContent.value }) });
+    chatContent.value = '';
+    loadMessages();
+  } catch(e) { showToast(e.message, 'error'); }
+});
+if (getUserRole() === 'ADMIN') {
+  adminLoad.addEventListener('click', () => load(endpointForAdmin()));
+  adminRevenue.addEventListener('click', async () => { try { const res = await apiFetch('/api/rentals/admin/revenue'); revenueBox.textContent = `Total rental revenue: ${formatCurrency(unwrap(res))}`; } catch(e) { showToast(e.message,'error'); } });
+  rangeRevenue.addEventListener('click', async () => { try { const q = dateRangeQuery(revenueStart.value, revenueEnd.value); const res = await apiFetch('/api/rentals/admin/revenue/range?' + q); revenueBox.textContent = `Range revenue: ${formatCurrency(unwrap(res))}`; } catch(e) { showToast(e.message,'error'); } });
+}
+cancelForm.addEventListener('submit', async event => { event.preventDefault(); try { await apiFetch(`/api/rentals/${selected.id}/cancel`, { method:'PATCH', body: JSON.stringify({ reason: cancelReason.value }) }); closeModal('cancelModal'); showToast('Rental cancelled.'); load(); } catch(e) { showToast(e.message,'error'); } });
+completeForm.addEventListener('submit', async event => { event.preventDefault(); try { await apiFetch(`/api/rentals/${selected.id}/complete?distanceKm=${encodeURIComponent(distanceKm.value)}`, { method:'PATCH' }); closeModal('completeModal'); showToast('Rental completed.'); load(); } catch(e) { showToast(e.message,'error'); } });
+reviewForm.addEventListener('submit', async event => { event.preventDefault(); try { await apiFetch(`/api/rentals/${selected.id}/review`, { method:'POST', body: JSON.stringify({ rating: Number(rating.value), review: reviewText.value, ownerServiceRating: Number(rating.value), ownerServiceReview: reviewText.value }) }); closeModal('reviewModal'); showToast('Review submitted.'); load(); } catch(e) { showToast(e.message,'error'); } });
+load();
+</script></body></html>

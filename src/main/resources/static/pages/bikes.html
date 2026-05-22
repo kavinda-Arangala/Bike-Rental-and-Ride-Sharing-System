@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Browse Bikes | BikeShare</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={theme:{extend:{colors:{app:{bg:'#0f0f0f',card:'#1a1a1a',side:'#111111',border:'#2a2a2a',accent:'#00d4aa',primary:'#f0f0f0',secondary:'#9ca3af',muted:'#6b7280'}}}}}</script>
+</head>
+<body>
+<script src="../js/utils.js"></script>
+<script>
+requireAuth();
+renderAppShell('bikes','Browse Bikes','Search, rent, and manage bike listings.');
+const root = document.getElementById('pageContent');
+let bikes = [];
+let selectedBike = null;
+let deleteBikeId = null;
+
+root.innerHTML = `
+  <section class="rounded-lg border border-app-border bg-app-card p-5">
+    <div class="grid gap-3 md:grid-cols-6">
+      <input id="filterLocation" placeholder="Location" class="${inputClass()}">
+      <select id="filterType" class="${inputClass()}"><option value="">All Types</option><option>CYCLE</option><option>SCOOTER</option><option>MOTORBIKE</option></select>
+      <select id="filterStatus" class="${inputClass()}"><option value="">Any Status</option><option>AVAILABLE</option><option>RENTED</option><option>MAINTENANCE</option></select>
+      <input id="filterMin" type="number" placeholder="Min price" class="${inputClass()}">
+      <input id="filterMax" type="number" placeholder="Max price" class="${inputClass()}">
+      <button id="addBikeBtn" class="${buttonClass()} hidden">Add Bike</button>
+    </div>
+  </section>
+  <section id="bikeGrid" class="mt-6 grid gap-5 sm:grid-cols-2 xl:grid-cols-3"></section>
+  ${modalShell('rentModal','Rent Bike',`<form id="rentForm" class="space-y-4">
+    <p id="rentBikeTitle" class="text-app-secondary"></p>
+    <label class="block"><span class="mb-2 block text-sm text-app-secondary">Planned Start</span><input id="plannedStartTime" type="datetime-local" class="${inputClass()}" required></label>
+    <label class="block"><span class="mb-2 block text-sm text-app-secondary">Planned End</span><input id="plannedEndTime" type="datetime-local" class="${inputClass()}" required></label>
+    <div class="rounded-lg border border-app-border bg-[#121212] p-4"><p class="text-sm text-app-secondary">Estimated Fare</p><p id="fare" class="mt-1 text-2xl font-bold text-app-accent">LKR 0.00</p></div>
+    <button class="${buttonClass()}">Create Rental</button>
+  </form>`)}
+  ${modalShell('editBikeModal','Edit Bike',`<form id="editBikeForm" class="grid gap-4 sm:grid-cols-2"></form>`)}
+  ${modalShell('deleteBikeModal','Remove Bike',`<p class="mb-5 text-sm text-app-secondary">This removes the bike from listings while keeping rental and payment history safe.</p><div class="flex gap-2"><button id="confirmDeleteBike" class="${buttonClass('danger')}">Remove</button><button data-close="deleteBikeModal" class="${buttonClass('ghost')}">Cancel</button></div>`)}
+  ${modalShell('ratingModal','Update Rating',`<form id="ratingForm" class="space-y-4"><input id="ratingValue" type="number" min="0" max="5" step="0.1" class="${inputClass()}" placeholder="0 - 5" required><button class="${buttonClass()}">Save Rating</button></form>`)}
+`;
+
+if (['ADMIN', 'BIKE_OWNER'].includes(getUserRole())) document.getElementById('addBikeBtn').classList.remove('hidden');
+
+const bikeFields = [
+  ['title','Title','text',true], ['location','Location','text',true], ['dailyPrice','Daily Price','number',true],
+  ['weeklyPrice','Weekly Price','number',false], ['monthlyPrice','Monthly Price','number',false], ['brand','Brand','text',false],
+  ['model','Model','text',false], ['engineCC','Engine CC','text',false], ['color','Color','text',false],
+  ['yearOfManufacture','Year','number',false], ['photoUrl','Photo URL','text',false], ['photoUrls','More Photo URLs','text',false],
+  ['ownerId','Owner ID','number',true], ['ownerName','Owner Name','text',false], ['ownerPhone','Owner Phone','text',false],
+  ['latitude','Latitude','number',false], ['longitude','Longitude','number',false]
+];
+
+document.getElementById('editBikeForm').innerHTML = `
+  <input type="hidden" name="id">
+  <label><span class="mb-2 block text-sm text-app-secondary">Bike Type</span><select name="bikeType" class="${inputClass()}" required><option>CYCLE</option><option>SCOOTER</option><option>MOTORBIKE</option></select></label>
+  <label><span class="mb-2 block text-sm text-app-secondary">Status</span><select name="status" class="${inputClass()}"><option>AVAILABLE</option><option>RENTED</option><option>MAINTENANCE</option></select></label>
+  ${bikeFields.map(([name,label,type,required]) => `<label class="${name === 'photoUrls' ? 'sm:col-span-2' : ''}"><span class="mb-2 block text-sm text-app-secondary">${label}${required ? ' *' : ''}</span><input name="${name}" type="${type}" step="${type === 'number' ? '0.01' : ''}" class="${inputClass()}" ${required ? 'required' : ''}></label>`).join('')}
+  <label class="sm:col-span-2"><span class="mb-2 block text-sm text-app-secondary">Description</span><textarea name="description" rows="4" class="${inputClass()}"></textarea></label>
+  <button class="${buttonClass()} sm:col-span-2">Save Changes</button>`;
+
+function params() {
+  return new URLSearchParams({
+    location: document.getElementById('filterLocation').value,
+    bikeType: document.getElementById('filterType').value,
+    status: document.getElementById('filterStatus').value,
+    minPrice: document.getElementById('filterMin').value,
+    maxPrice: document.getElementById('filterMax').value
+  }).toString();
+}
+function stars(value) {
+  const n = Math.max(0, Math.min(5, Math.round(Number(value || 0))));
+  return `<span class="text-yellow-300">${n ? '*'.repeat(n) : 'No rating'}</span><span class="text-app-muted">${n ? '*'.repeat(5 - n) : ''}</span>`;
+}
+function bikePhoto(bike) { return imageSrc(bike.photoUrl || bike.photoUrls, DEFAULT_BIKE_IMAGE); }
+function canManageBike(bike) { return getUserRole() === 'ADMIN' || (getUserRole() === 'BIKE_OWNER' && String(bike.ownerId) === String(currentUserId())); }
+function buildBikePayload(form) {
+  const raw = Object.fromEntries(new FormData(form));
+  const payload = {};
+  Object.entries(raw).forEach(([key, value]) => {
+    if (key === 'id') return;
+    if (typeof value === 'string' && value.trim() === '') return;
+    payload[key] = typeof value === 'string' ? value.trim() : value;
+  });
+  if (payload.photoUrl) payload.photoUrl = normalizeImageUrl(payload.photoUrl);
+  if (!payload.photoUrl && payload.photoUrls) payload.photoUrl = normalizeImageUrl(payload.photoUrls);
+  ['dailyPrice','weeklyPrice','monthlyPrice','ownerId','latitude','longitude','yearOfManufacture'].forEach(key => {
+    if (Object.prototype.hasOwnProperty.call(payload, key)) payload[key] = Number(payload[key]);
+  });
+  return payload;
+}
+function fillEditForm(bike) {
+  const form = document.getElementById('editBikeForm');
+  [...form.elements].forEach(el => {
+    if (!el.name) return;
+    el.value = bike[el.name] ?? '';
+  });
+  if (getUserRole() === 'BIKE_OWNER') {
+    form.elements.ownerId.readOnly = true;
+    form.elements.ownerName.readOnly = true;
+    form.elements.ownerPhone.readOnly = true;
+  }
+}
+function renderBikes() {
+  document.getElementById('bikeGrid').innerHTML = bikes.length ? bikes.map(bike => `
+    <article class="overflow-hidden rounded-lg border border-app-border bg-app-card">
+      <img class="h-48 w-full object-cover" src="${escapeHtml(bikePhoto(bike))}" ${imageFallbackAttrs(DEFAULT_BIKE_IMAGE)} alt="Bike photo">
+      <div class="space-y-3 p-5">
+        <div class="flex items-start justify-between gap-3"><h2 class="text-lg font-bold">${escapeHtml(bike.title || 'Untitled Bike')}</h2>${getStatusBadge(bike.status)}</div>
+        <div class="flex flex-wrap gap-2 text-xs">${getStatusBadge(bike.bikeType)}<span class="rounded-full border border-app-border px-2 py-1 text-app-secondary">${escapeHtml(bike.location || 'Unknown')}</span></div>
+        <p class="text-2xl font-bold text-app-accent">${formatCurrency(bike.dailyPrice)} <span class="text-sm text-app-secondary">/ day</span></p>
+        <p class="text-sm text-app-secondary">${escapeHtml(bike.brand || 'Brand')} ${escapeHtml(bike.model || 'Model')} - ${stars(bike.averageRating)} - ${Number(bike.totalRentals || 0)} rentals</p>
+        <div class="flex flex-wrap gap-2">
+          <button data-rent="${bike.id}" class="${buttonClass()} ${String(bike.status).toUpperCase() === 'AVAILABLE' ? '' : 'cursor-not-allowed opacity-50'}" ${String(bike.status).toUpperCase() === 'AVAILABLE' ? '' : 'disabled'}>Rent Now</button>
+          ${canManageBike(bike) ? `<button data-edit="${bike.id}" class="${buttonClass('ghost')}">Edit</button><button data-delete="${bike.id}" class="${buttonClass('danger')}">Remove</button>` : ''}
+          ${getUserRole() === 'ADMIN' ? `<button data-rate="${bike.id}" class="${buttonClass('ghost')}">Rating</button>` : ''}
+        </div>
+        ${canManageBike(bike) ? `<div class="flex gap-2"><select data-status-id="${bike.id}" class="${inputClass()}"><option ${bike.status === 'AVAILABLE' ? 'selected' : ''}>AVAILABLE</option><option ${bike.status === 'RENTED' ? 'selected' : ''}>RENTED</option><option ${bike.status === 'MAINTENANCE' ? 'selected' : ''}>MAINTENANCE</option></select></div>` : ''}
+      </div>
+    </article>`).join('') : emptyState('No bikes match your filters.');
+}
+async function loadBikes() {
+  try {
+    bikes = listFrom(await apiFetch('/api/bikes/search?' + params()));
+    renderBikes();
+  } catch (error) { showToast(error.message, 'error'); }
+}
+function calcFare() {
+  const start = document.getElementById('plannedStartTime').value;
+  const end = document.getElementById('plannedEndTime').value;
+  const amount = start && end ? Math.max(50, Number(selectedBike?.dailyPrice || 0) * daysBetween(start, end)) : 0;
+  document.getElementById('fare').textContent = formatCurrency(amount);
+}
+['filterLocation','filterType','filterStatus','filterMin','filterMax'].forEach(id => document.getElementById(id).addEventListener('input', loadBikes));
+document.getElementById('addBikeBtn').addEventListener('click', () => window.location.href = 'add-bike.html');
+document.getElementById('plannedStartTime').addEventListener('input', calcFare);
+document.getElementById('plannedEndTime').addEventListener('input', calcFare);
+document.addEventListener('change', async event => {
+  const id = event.target.dataset.statusId;
+  if (!id) return;
+  try {
+    await apiFetch(`/api/bikes/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status: event.target.value }) });
+    showToast('Bike status updated.');
+    loadBikes();
+  } catch (error) { showToast(error.message, 'error'); }
+});
+document.addEventListener('click', event => {
+  const rentId = event.target.dataset.rent;
+  const editId = event.target.dataset.edit;
+  const deleteId = event.target.dataset.delete;
+  const rateId = event.target.dataset.rate;
+  if (rentId) {
+    selectedBike = bikes.find(b => String(b.id) === String(rentId));
+    document.getElementById('rentBikeTitle').textContent = selectedBike?.title || 'Bike';
+    calcFare();
+    openModal('rentModal');
+  }
+  if (editId) {
+    selectedBike = bikes.find(b => String(b.id) === String(editId));
+    fillEditForm(selectedBike);
+    openModal('editBikeModal');
+  }
+  if (deleteId) { deleteBikeId = deleteId; openModal('deleteBikeModal'); }
+  if (rateId) { selectedBike = bikes.find(b => String(b.id) === String(rateId)); document.getElementById('ratingValue').value = selectedBike?.averageRating || 0; openModal('ratingModal'); }
+});
+document.getElementById('rentForm').addEventListener('submit', async event => {
+  event.preventDefault();
+  try {
+    await apiFetch('/api/rentals', { method: 'POST', body: JSON.stringify({ bikeId: selectedBike.id, plannedStartTime: toIsoLocal(document.getElementById('plannedStartTime').value), plannedEndTime: toIsoLocal(document.getElementById('plannedEndTime').value) }) });
+    showToast('Rental created!');
+    setTimeout(() => window.location.href = 'rentals.html', 700);
+  } catch (error) { showToast(error.message, 'error'); }
+});
+document.getElementById('editBikeForm').addEventListener('submit', async event => {
+  event.preventDefault();
+  try {
+    await apiFetch(`/api/bikes/${selectedBike.id}`, { method: 'PUT', body: JSON.stringify(buildBikePayload(event.target)) });
+    closeModal('editBikeModal');
+    showToast('Bike updated.');
+    loadBikes();
+  } catch (error) { showToast(error.message, 'error'); }
+});
+document.getElementById('confirmDeleteBike').addEventListener('click', async () => {
+  try {
+    await apiFetch(`/api/bikes/${deleteBikeId}`, { method: 'DELETE' });
+    closeModal('deleteBikeModal');
+    showToast('Bike removed from listings.');
+    loadBikes();
+  } catch (error) { showToast(error.message, 'error'); }
+});
+document.getElementById('ratingForm').addEventListener('submit', async event => {
+  event.preventDefault();
+  try {
+    await apiFetch(`/api/bikes/${selectedBike.id}/rating`, { method: 'PATCH', body: JSON.stringify({ rating: Number(document.getElementById('ratingValue').value) }) });
+    closeModal('ratingModal');
+    showToast('Rating updated.');
+    loadBikes();
+  } catch (error) { showToast(error.message, 'error'); }
+});
+loadBikes();
+</script>
+</body>
+</html>

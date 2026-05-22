@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Add Bike | BikeShare</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            app: {
+              bg: '#0f0f0f',
+              card: '#1a1a1a',
+              side: '#111111',
+              border: '#2a2a2a',
+              accent: '#00d4aa',
+              primary: '#f0f0f0',
+              secondary: '#9ca3af',
+              muted: '#6b7280'
+            }
+          }
+        }
+      }
+    };
+  </script>
+</head>
+<body>
+  <script src="../js/utils.js"></script>
+  <script>
+    requireAuth();
+    renderAppShell('add-bike', 'Add Bike', 'Create a new bike listing for the rental fleet.');
+
+    const root = document.getElementById('pageContent');
+
+    const canManageBikes = ['ADMIN', 'BIKE_OWNER'].includes(getUserRole());
+
+    if (!canManageBikes) {
+      root.innerHTML = `
+        <section class="rounded-lg border border-yellow-400/30 bg-yellow-400/10 p-6">
+          <h2 class="text-xl font-bold text-yellow-100">Bike owner access required</h2>
+          <p class="mt-2 text-sm text-yellow-100/80">Only ADMIN and BIKE_OWNER users can add bikes.</p>
+          <a href="bikes.html" class="mt-5 inline-flex rounded-lg border border-app-border px-4 py-2 text-sm text-app-secondary hover:text-app-primary">Back to Browse Bikes</a>
+        </section>`;
+    } else {
+      root.innerHTML = `
+        <div class="grid gap-6 xl:grid-cols-[1.4fr_0.9fr]">
+          <form id="addBikeForm" class="rounded-lg border border-app-border bg-app-card p-6">
+            <div class="mb-6 flex flex-col gap-3 border-b border-app-border pb-5 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 class="text-xl font-bold">Bike Details</h2>
+                <p class="mt-1 text-sm text-app-secondary">Fields marked required must match backend validation.</p>
+              </div>
+              <button type="submit" class="${buttonClass()}">Save Bike</button>
+            </div>
+
+            <section class="grid gap-4 sm:grid-cols-2">
+              <label class="sm:col-span-2">
+                <span class="mb-2 block text-sm text-app-secondary">Title *</span>
+                <input name="title" class="${inputClass()}" placeholder="Honda Dio - Colombo" required>
+              </label>
+
+              <label>
+                <span class="mb-2 block text-sm text-app-secondary">Bike Type *</span>
+                <select name="bikeType" class="${inputClass()}" required>
+                  <option value="CYCLE">CYCLE</option>
+                  <option value="SCOOTER">SCOOTER</option>
+                  <option value="MOTORBIKE">MOTORBIKE</option>
+                </select>
+              </label>
+
+              <label>
+                <span class="mb-2 block text-sm text-app-secondary">Status</span>
+                <select name="status" class="${inputClass()}">
+                  <option value="AVAILABLE">AVAILABLE</option>
+                  <option value="RENTED">RENTED</option>
+                  <option value="MAINTENANCE">MAINTENANCE</option>
+                </select>
+              </label>
+
+              <label class="sm:col-span-2">
+                <span class="mb-2 block text-sm text-app-secondary">Location *</span>
+                <input name="location" class="${inputClass()}" placeholder="Malabe" required>
+              </label>
+
+              <label>
+                <span class="mb-2 block text-sm text-app-secondary">Daily Price *</span>
+                <input name="dailyPrice" type="number" min="1" step="0.01" class="${inputClass()}" placeholder="1500" required>
+              </label>
+
+              <label>
+                <span class="mb-2 block text-sm text-app-secondary">Weekly Price</span>
+                <input name="weeklyPrice" type="number" min="0" step="0.01" class="${inputClass()}" placeholder="8500">
+              </label>
+
+              <label>
+                <span class="mb-2 block text-sm text-app-secondary">Monthly Price</span>
+                <input name="monthlyPrice" type="number" min="0" step="0.01" class="${inputClass()}" placeholder="30000">
+              </label>
+
+              <label>
+                <span class="mb-2 block text-sm text-app-secondary">Year</span>
+                <input name="yearOfManufacture" type="number" min="1950" max="2030" class="${inputClass()}" placeholder="2024">
+              </label>
+
+              <label>
+                <span class="mb-2 block text-sm text-app-secondary">Brand</span>
+                <input name="brand" class="${inputClass()}" placeholder="Honda">
+              </label>
+
+              <label>
+                <span class="mb-2 block text-sm text-app-secondary">Model</span>
+                <input name="model" class="${inputClass()}" placeholder="Dio">
+              </label>
+
+              <label>
+                <span class="mb-2 block text-sm text-app-secondary">Engine CC</span>
+                <input name="engineCC" class="${inputClass()}" placeholder="110">
+              </label>
+
+              <label>
+                <span class="mb-2 block text-sm text-app-secondary">Color</span>
+                <input name="color" class="${inputClass()}" placeholder="Matte Black">
+              </label>
+
+              <label class="sm:col-span-2">
+                <span class="mb-2 block text-sm text-app-secondary">Photo URL</span>
+                <input name="photoUrl" class="${inputClass()}" placeholder="https://example.com/bike.jpg">
+              </label>
+
+              <label class="sm:col-span-2">
+                <span class="mb-2 block text-sm text-app-secondary">More Photo URLs</span>
+                <input name="photoUrls" class="${inputClass()}" placeholder="Comma separated URLs">
+              </label>
+            </section>
+
+            <section id="ownerSection" class="mt-8 border-t border-app-border pt-6">
+              <h3 class="mb-4 text-lg font-bold">Owner Details</h3>
+              <div class="grid gap-4 sm:grid-cols-3">
+                <label>
+                  <span class="mb-2 block text-sm text-app-secondary">Owner ID *</span>
+                  <input name="ownerId" type="number" min="1" class="${inputClass()}" required>
+                </label>
+                <label>
+                  <span class="mb-2 block text-sm text-app-secondary">Owner Name</span>
+                  <input name="ownerName" class="${inputClass()}" placeholder="Owner name">
+                </label>
+                <label>
+                  <span class="mb-2 block text-sm text-app-secondary">Owner Phone</span>
+                  <input name="ownerPhone" class="${inputClass()}" placeholder="0771234567">
+                </label>
+              </div>
+            </section>
+
+            <section class="mt-8 border-t border-app-border pt-6">
+              <h3 class="mb-4 text-lg font-bold">Optional Map Location</h3>
+              <div class="grid gap-4 sm:grid-cols-2">
+                <label>
+                  <span class="mb-2 block text-sm text-app-secondary">Latitude</span>
+                  <input name="latitude" type="number" step="0.000001" class="${inputClass()}" placeholder="6.9147">
+                </label>
+                <label>
+                  <span class="mb-2 block text-sm text-app-secondary">Longitude</span>
+                  <input name="longitude" type="number" step="0.000001" class="${inputClass()}" placeholder="79.9729">
+                </label>
+              </div>
+            </section>
+
+            <section class="mt-8 border-t border-app-border pt-6">
+              <label>
+                <span class="mb-2 block text-sm text-app-secondary">Description</span>
+                <textarea name="description" class="${inputClass()}" rows="4" placeholder="Condition, helmet availability, pickup notes, and other details."></textarea>
+              </label>
+            </section>
+          </form>
+
+          <aside class="rounded-lg border border-app-border bg-app-card p-5">
+            <h2 class="mb-4 text-lg font-bold">Preview</h2>
+            <article class="overflow-hidden rounded-lg border border-app-border bg-[#121212]">
+              <img id="previewImage" class="h-48 w-full object-cover" src="${DEFAULT_BIKE_IMAGE}" ${imageFallbackAttrs(DEFAULT_BIKE_IMAGE)} alt="Bike preview">
+              <div class="space-y-3 p-4">
+                <div class="flex items-start justify-between gap-3">
+                  <h3 id="previewTitle" class="font-bold">New Bike</h3>
+                  <span id="previewStatus">${getStatusBadge('AVAILABLE')}</span>
+                </div>
+                <p id="previewMeta" class="text-sm text-app-secondary">CYCLE • Location</p>
+                <p id="previewPrice" class="text-2xl font-bold text-app-accent">LKR 0.00 <span class="text-sm text-app-secondary">/ day</span></p>
+                <p id="previewOwner" class="text-sm text-app-muted">Owner ID required</p>
+              </div>
+            </article>
+            <div class="mt-5 rounded-lg border border-app-border bg-[#121212] p-4 text-sm text-app-secondary">
+              After saving, the bike appears on Browse Bikes and can be rented when status is AVAILABLE.
+            </div>
+          </aside>
+        </div>`;
+
+      const form = document.getElementById('addBikeForm');
+      const ownerIdInput = form.elements.ownerId;
+      ownerIdInput.value = currentUserId() || '';
+      if (getUserRole() === 'BIKE_OWNER') {
+        document.getElementById('ownerSection').classList.add('hidden');
+        ownerIdInput.required = false;
+      }
+
+      function readForm() {
+        return Object.fromEntries(new FormData(form));
+      }
+
+      function numberOrNull(value) {
+        if (value === null || value === undefined || String(value).trim() === '') return null;
+        return Number(value);
+      }
+
+      function buildPayload() {
+        const raw = readForm();
+        const payload = {};
+        Object.entries(raw).forEach(([key, value]) => {
+          if (typeof value === 'string' && value.trim() === '') return;
+          payload[key] = typeof value === 'string' ? value.trim() : value;
+        });
+        ['dailyPrice', 'weeklyPrice', 'monthlyPrice', 'ownerId', 'latitude', 'longitude', 'yearOfManufacture'].forEach((key) => {
+          if (Object.prototype.hasOwnProperty.call(payload, key)) payload[key] = numberOrNull(payload[key]);
+        });
+        if (payload.photoUrl) payload.photoUrl = normalizeImageUrl(payload.photoUrl);
+        if (!payload.photoUrl && payload.photoUrls) payload.photoUrl = normalizeImageUrl(payload.photoUrls);
+        return payload;
+      }
+
+      function updatePreview() {
+        const data = readForm();
+        document.getElementById('previewTitle').textContent = data.title || 'New Bike';
+        document.getElementById('previewStatus').innerHTML = getStatusBadge(data.status || 'AVAILABLE');
+        document.getElementById('previewMeta').textContent = `${data.bikeType || 'CYCLE'} • ${data.location || 'Location'}`;
+        document.getElementById('previewPrice').innerHTML = `${formatCurrency(data.dailyPrice)} <span class="text-sm text-app-secondary">/ day</span>`;
+        document.getElementById('previewOwner').textContent = data.ownerId ? `Owner: ${data.ownerName || 'Owner'} (#${data.ownerId})` : 'Owner ID required';
+        document.getElementById('previewImage').src = imageSrc(data.photoUrl || data.photoUrls, DEFAULT_BIKE_IMAGE);
+      }
+
+      form.addEventListener('input', updatePreview);
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const payload = buildPayload();
+        if (!payload.title || !payload.bikeType || !payload.location || !payload.dailyPrice || (getUserRole() === 'ADMIN' && !payload.ownerId)) {
+          showToast('Please fill title, bike type, location, daily price, and owner ID for admin-created bikes.', 'error');
+          return;
+        }
+        try {
+          await apiFetch('/api/bikes', {
+            method: 'POST',
+            body: JSON.stringify(payload)
+          });
+          showToast('Bike added successfully.');
+          setTimeout(() => location.href = 'bikes.html', 700);
+        } catch (error) {
+          showToast(error.message, 'error');
+        }
+      });
+
+      updatePreview();
+    }
+  </script>
+</body>
+</html>

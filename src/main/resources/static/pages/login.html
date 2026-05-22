@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login | BikeShare</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={theme:{extend:{colors:{app:{bg:'#0f0f0f',card:'#1a1a1a',side:'#111111',border:'#2a2a2a',accent:'#00d4aa',primary:'#f0f0f0',secondary:'#9ca3af',muted:'#6b7280'}}}}}</script>
+  <style>
+    .auth-grid {
+      background-image:
+        linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px);
+      background-size: 42px 42px;
+      mask-image: linear-gradient(to bottom, black, transparent 88%);
+    }
+  </style>
+</head>
+<body class="min-h-screen overflow-hidden bg-[#0b0d0f] text-app-primary">
+<div class="auth-grid pointer-events-none fixed inset-0"></div>
+<main class="relative grid min-h-screen place-items-center p-4 lg:grid-cols-[1fr_520px] lg:px-16">
+  <section class="hidden max-w-xl justify-self-start lg:block">
+    <div class="mb-8 inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-app-secondary">
+      <span class="h-2 w-2 rounded-full bg-app-accent"></span>
+      Bike Rental and Ride Sharing System
+    </div>
+    <h1 class="max-w-lg text-5xl font-black leading-tight tracking-normal">
+      Manage rentals, rides, and payments from one place.
+    </h1>
+    <p class="mt-5 max-w-md text-base leading-7 text-app-secondary">
+      BikeShare connects riders, users, bike owners, and admins through a simple rental and ride sharing workflow.
+    </p>
+    <div class="mt-10 grid max-w-lg grid-cols-3 gap-3">
+      <div class="rounded-lg border border-white/10 bg-white/[0.04] p-4">
+        <p class="text-2xl font-black text-app-accent">24/7</p>
+        <p class="mt-1 text-xs text-app-secondary">Rental access</p>
+      </div>
+      <div class="rounded-lg border border-white/10 bg-white/[0.04] p-4">
+        <p class="text-2xl font-black text-app-accent">3</p>
+        <p class="mt-1 text-xs text-app-secondary">User roles</p>
+      </div>
+      <div class="rounded-lg border border-white/10 bg-white/[0.04] p-4">
+        <p class="text-2xl font-black text-app-accent">LKR</p>
+        <p class="mt-1 text-xs text-app-secondary">Payments</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="w-full max-w-md rounded-lg border border-white/10 bg-[#171b1f]/90 p-8 shadow-2xl shadow-black/40 backdrop-blur">
+    <div class="mb-8">
+      <div class="mb-6 grid h-14 w-14 place-items-center rounded-lg bg-app-accent text-xl font-black text-black shadow-lg shadow-teal-500/20">BR</div>
+      <h2 class="text-3xl font-black tracking-normal">Welcome Back</h2>
+      <p class="mt-2 text-sm text-app-secondary">Login to continue to your dashboard.</p>
+    </div>
+
+    <form id="loginForm" class="space-y-5">
+      <label class="block">
+        <span class="mb-2 block text-sm font-medium text-app-secondary">Username or Email</span>
+        <input name="usernameOrEmail" autocomplete="username" class="w-full rounded-lg border border-white/10 bg-[#0f1215] px-4 py-3 text-app-primary outline-none transition placeholder:text-app-muted focus:border-app-accent focus:ring-2 focus:ring-app-accent/20" required>
+      </label>
+      <label class="block">
+        <span class="mb-2 block text-sm font-medium text-app-secondary">Password</span>
+        <div class="flex rounded-lg border border-white/10 bg-[#0f1215] transition focus-within:border-app-accent focus-within:ring-2 focus-within:ring-app-accent/20">
+          <input id="password" name="password" type="password" autocomplete="current-password" class="min-w-0 flex-1 bg-transparent px-4 py-3 text-app-primary outline-none" required>
+          <button id="togglePassword" type="button" class="px-4 text-sm font-semibold text-app-secondary transition hover:text-app-primary">Show</button>
+        </div>
+      </label>
+      <p id="error" class="hidden rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-100"></p>
+      <button class="w-full rounded-lg bg-app-accent px-4 py-3 font-black text-black shadow-lg shadow-teal-500/20 transition hover:bg-teal-300 focus:outline-none focus:ring-2 focus:ring-app-accent/40">Login</button>
+    </form>
+
+    <div class="mt-8 flex items-center justify-center gap-2 border-t border-white/10 pt-6 text-sm text-app-secondary">
+      <span>No account?</span>
+      <a class="font-bold text-app-accent transition hover:text-teal-300" href="register.html">Register</a>
+    </div>
+  </section>
+</main>
+<script src="../js/utils.js"></script>
+<script>
+document.getElementById('togglePassword').addEventListener('click', () => {
+  const password = document.getElementById('password');
+  const showing = password.type === 'text';
+  password.type = showing ? 'password' : 'text';
+  togglePassword.textContent = showing ? 'Show' : 'Hide';
+});
+
+document.getElementById('loginForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const error = document.getElementById('error');
+  error.classList.add('hidden');
+  const body = Object.fromEntries(new FormData(e.target));
+  try {
+    const res = await apiFetch('/api/auth/login', { method: 'POST', body: JSON.stringify(body) });
+    const user = unwrap(res) || {};
+    ['accessToken', 'refreshToken', 'userId', 'username', 'email', 'role'].forEach(k => localStorage.setItem(k, user[k] || ''));
+    location.href = 'dashboard.html';
+  } catch (err) {
+    error.textContent = err.message;
+    error.classList.remove('hidden');
+  }
+});
+</script>
+</body>
+</html>

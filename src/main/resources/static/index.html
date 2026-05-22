@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VoltRide | Bike Rental & Ride Sharing</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <link rel="stylesheet" href="styles/main.css">
+  <link rel="stylesheet" href="styles/layout.css">
+  <link rel="stylesheet" href="styles/components.css">
+</head>
+<body>
+  <div class="particle-field" aria-hidden="true"></div>
+
+  <main id="auth-screen" class="auth-screen">
+    <section class="auth-card fade-in">
+      <div class="brand-mark">
+        <span><i class="fa-solid fa-bolt"></i></span>
+        <div>
+          <h1>VoltRide</h1>
+          <p>Urban mobility command center</p>
+        </div>
+      </div>
+
+      <div class="auth-tabs" role="tablist" aria-label="Authentication mode">
+        <button class="auth-tab is-active" type="button" data-auth-tab="login">Login</button>
+        <button class="auth-tab" type="button" data-auth-tab="register">Register</button>
+      </div>
+
+      <form id="login-form" class="auth-form" novalidate>
+        <label class="field floating-field">
+          <input type="email" name="email" autocomplete="email" placeholder=" " required>
+          <span>Email address</span>
+          <small class="error-message"></small>
+        </label>
+        <label class="field floating-field">
+          <input type="password" name="password" autocomplete="current-password" placeholder=" " minlength="6" required>
+          <span>Password</span>
+          <small class="error-message"></small>
+        </label>
+        <button class="btn btn-primary btn-full" type="submit">Login</button>
+      </form>
+
+      <form id="register-form" class="auth-form hidden" novalidate>
+        <label class="field floating-field">
+          <input type="text" name="name" autocomplete="name" placeholder=" " minlength="2" required>
+          <span>Full name</span>
+          <small class="error-message"></small>
+        </label>
+        <label class="field floating-field">
+          <input type="email" name="email" autocomplete="email" placeholder=" " required>
+          <span>Email address</span>
+          <small class="error-message"></small>
+        </label>
+        <label class="field floating-field">
+          <input type="password" name="password" autocomplete="new-password" placeholder=" " minlength="6" required>
+          <span>Password</span>
+          <small class="error-message"></small>
+        </label>
+        <button class="btn btn-primary btn-full" type="submit">Create Account</button>
+      </form>
+
+      <div class="divider"><span>or continue with</span></div>
+      <div class="social-row">
+        <button class="social-btn" type="button"><i class="fa-brands fa-google"></i> Google</button>
+        <button class="social-btn" type="button"><i class="fa-brands fa-facebook-f"></i> Facebook</button>
+      </div>
+    </section>
+  </main>
+
+  <div id="app-shell" class="app-shell hidden">
+    <aside class="sidebar" id="sidebar">
+      <a href="#dashboard" class="sidebar-brand" data-route="dashboard" aria-label="VoltRide dashboard">
+        <span><i class="fa-solid fa-bolt"></i></span>
+        <strong>VoltRide</strong>
+      </a>
+      <nav class="nav-list" aria-label="Primary navigation">
+        <button class="nav-link is-active" data-route="dashboard" data-tooltip="Dashboard"><i class="fa-solid fa-chart-line"></i><span>Dashboard</span></button>
+        <button class="nav-link" data-route="rentals" data-tooltip="Rent a Bike"><i class="fa-solid fa-bicycle"></i><span>Rent a Bike</span></button>
+        <button class="nav-link" data-route="rides" data-tooltip="Ride Sharing"><i class="fa-solid fa-route"></i><span>Ride Sharing</span></button>
+        <button class="nav-link" data-route="payments" data-tooltip="Payments"><i class="fa-solid fa-credit-card"></i><span>Payments</span></button>
+        <button class="nav-link" data-route="notifications" data-tooltip="Notifications"><i class="fa-solid fa-bell"></i><span>Notifications</span></button>
+        <button class="nav-link" data-route="profile" data-tooltip="Profile"><i class="fa-solid fa-user-astronaut"></i><span>Profile</span></button>
+      </nav>
+      <button class="nav-link logout-link" id="logout-btn" data-tooltip="Logout"><i class="fa-solid fa-arrow-right-from-bracket"></i><span>Logout</span></button>
+    </aside>
+
+    <div class="workspace">
+      <header class="topbar">
+        <button class="icon-btn sidebar-toggle" id="sidebar-toggle" aria-label="Toggle sidebar"><i class="fa-solid fa-bars"></i></button>
+        <div>
+          <p class="eyebrow">Bike Rental & Ride Sharing</p>
+          <h2 id="page-title">Dashboard</h2>
+        </div>
+        <div class="topbar-actions">
+          <button class="icon-btn notification-trigger" data-route="notifications" aria-label="Open notifications">
+            <i class="fa-solid fa-bell"></i>
+            <span class="badge" id="topbar-badge">3</span>
+          </button>
+          <div class="profile-menu">
+            <button class="avatar-btn" id="profile-menu-btn" aria-label="Open profile menu"><span id="avatar-initials">AR</span></button>
+            <div class="profile-dropdown" id="profile-dropdown">
+              <button type="button" data-route="profile"><i class="fa-solid fa-user"></i> Profile</button>
+              <button type="button" id="dropdown-logout"><i class="fa-solid fa-power-off"></i> Logout</button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <section id="dashboard" class="view is-active">
+        <div class="stats-grid">
+          <article class="metric-card"><i class="fa-solid fa-road"></i><span>Total Rides</span><strong>128</strong><small>+12 this month</small></article>
+          <article class="metric-card"><i class="fa-solid fa-person-biking"></i><span>Active Rentals</span><strong>04</strong><small>2 due today</small></article>
+          <article class="metric-card"><i class="fa-solid fa-wallet"></i><span>Wallet Balance</span><strong>LKR 8,450</strong><small>Auto top-up active</small></article>
+          <article class="metric-card"><i class="fa-solid fa-bell"></i><span>Notifications</span><strong>03</strong><small>1 payment alert</small></article>
+        </div>
+
+        <div class="dashboard-grid">
+          <article class="panel map-panel">
+            <div class="panel-heading">
+              <div><p class="eyebrow">Live map</p><h3>Nearby Bikes & Ride Routes</h3></div>
+              <span class="status-pill success">Ready for API</span>
+            </div>
+            <div class="map-placeholder">
+              <div class="map-pin pin-a"><i class="fa-solid fa-bicycle"></i></div>
+              <div class="map-pin pin-b"><i class="fa-solid fa-location-dot"></i></div>
+              <div class="map-pin pin-c"><i class="fa-solid fa-car-side"></i></div>
+              <span class="route-line"></span>
+            </div>
+          </article>
+          <article class="panel">
+            <div class="panel-heading">
+              <div><p class="eyebrow">Recent activity</p><h3>Last 5 rentals/rides</h3></div>
+            </div>
+            <ul class="activity-list" id="activity-list"></ul>
+          </article>
+        </div>
+
+        <div class="quick-actions">
+          <button class="btn btn-primary" data-route="rentals"><i class="fa-solid fa-bicycle"></i> Rent a Bike</button>
+          <button class="btn btn-secondary" data-route="rides"><i class="fa-solid fa-route"></i> Share a Ride</button>
+          <button class="btn btn-ghost" data-route="payments"><i class="fa-solid fa-receipt"></i> View Payments</button>
+        </div>
+      </section>
+
+      <section id="rentals" class="view">
+        <div class="filter-bar">
+          <label>Type<select id="bike-type-filter"><option value="all">All bikes</option><option value="city">City</option><option value="mountain">Mountain</option><option value="electric">Electric</option></select></label>
+          <label>Status<select id="bike-status-filter"><option value="all">Any status</option><option value="available">Available</option><option value="in-use">In use</option></select></label>
+          <label>Max hourly rate<input id="bike-price-filter" type="range" min="150" max="900" value="900" step="50"><span id="price-label">LKR 900</span></label>
+        </div>
+        <div id="bike-skeleton" class="skeleton-grid"></div>
+        <div id="bike-grid" class="bike-grid"></div>
+      </section>
+
+      <section id="rides" class="view">
+        <div class="tab-panel">
+          <div class="toggle-tabs">
+            <button class="toggle-tab is-active" data-ride-tab="find">Find a Ride</button>
+            <button class="toggle-tab" data-ride-tab="offer">Offer a Ride</button>
+          </div>
+          <div id="find-ride-pane">
+            <div class="ride-list" id="ride-list"></div>
+          </div>
+          <form id="offer-ride-form" class="form-grid hidden" novalidate>
+            <label class="field">Pickup<input name="pickup" type="text" required><small class="error-message"></small></label>
+            <label class="field">Dropoff<input name="dropoff" type="text" required><small class="error-message"></small></label>
+            <label class="field">Date & time<input name="dateTime" type="datetime-local" required><small class="error-message"></small></label>
+            <label class="field">Seats<input name="seats" type="number" min="1" max="6" required><small class="error-message"></small></label>
+            <label class="field">Price per seat<input name="price" type="number" min="100" required><small class="error-message"></small></label>
+            <button class="btn btn-primary form-span" type="submit">Post Ride</button>
+          </form>
+        </div>
+      </section>
+
+      <section id="payments" class="view">
+        <div class="payments-layout">
+          <article class="wallet-card">
+            <p>Wallet Balance</p>
+            <strong>LKR 8,450.00</strong>
+            <button class="btn btn-secondary" id="top-up-btn"><i class="fa-solid fa-plus"></i> Top Up</button>
+          </article>
+          <form id="card-form" class="panel payment-method" novalidate>
+            <div class="panel-heading"><h3>Add Payment Method</h3></div>
+            <label class="field">Card number<input name="cardNumber" inputmode="numeric" maxlength="19" placeholder="4242 4242 4242 4242" required><small class="error-message"></small></label>
+            <div class="inline-fields">
+              <label class="field">Expiry<input name="expiry" placeholder="MM/YY" maxlength="5" required><small class="error-message"></small></label>
+              <label class="field">CVV<input name="cvv" inputmode="numeric" maxlength="4" required><small class="error-message"></small></label>
+            </div>
+            <button class="btn btn-primary" type="submit">Save Card</button>
+          </form>
+        </div>
+        <div class="filter-bar compact">
+          <label>From<input id="payment-from" type="date"></label>
+          <label>To<input id="payment-to" type="date"></label>
+          <label>Status<select id="payment-status-filter"><option value="all">All</option><option value="paid">Paid</option><option value="pending">Pending</option><option value="failed">Failed</option></select></label>
+        </div>
+        <div id="payment-skeleton" class="table-skeleton"></div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead><tr><th>Date</th><th>Type</th><th>Amount</th><th>Status</th></tr></thead>
+            <tbody id="transactions-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="notifications" class="view">
+        <div class="view-toolbar">
+          <button class="btn btn-primary" id="mark-read-btn"><i class="fa-solid fa-check-double"></i> Mark all as read</button>
+        </div>
+        <div id="notification-list" class="notification-list"></div>
+        <div id="empty-notifications" class="empty-state hidden">
+          <svg viewBox="0 0 240 180" role="img" aria-label="No notifications">
+            <path d="M55 135h130a35 35 0 0 0-12-26l-7-6V72a47 47 0 0 0-94 0v31l-7 6a35 35 0 0 0-10 26Z" fill="none" stroke="currentColor" stroke-width="8"/>
+            <path d="M100 148a22 22 0 0 0 40 0" fill="none" stroke="currentColor" stroke-width="8" stroke-linecap="round"/>
+            <circle cx="178" cy="54" r="13" fill="currentColor"/>
+          </svg>
+          <h3>No notifications</h3>
+          <p>You are all caught up.</p>
+        </div>
+      </section>
+
+      <section id="profile" class="view">
+        <form id="profile-form" class="profile-layout" novalidate>
+          <article class="profile-card">
+            <label class="avatar-upload">
+              <span id="profile-avatar">AR</span>
+              <input type="file" accept="image/*" aria-label="Upload avatar">
+              <small><i class="fa-solid fa-camera"></i> Upload</small>
+            </label>
+            <div class="ride-stats">
+              <div><strong>128</strong><span>Total rides</span></div>
+              <div><strong>842 km</strong><span>Distance</span></div>
+              <div><strong>2025</strong><span>Member since</span></div>
+            </div>
+          </article>
+          <article class="panel form-panel">
+            <div class="panel-heading"><h3>Profile Details</h3></div>
+            <div class="form-grid">
+              <label class="field">Name<input name="name" type="text" required><small class="error-message"></small></label>
+              <label class="field">Email<input name="email" type="email" required><small class="error-message"></small></label>
+              <label class="field">Phone<input name="phone" type="tel" required><small class="error-message"></small></label>
+              <label class="field form-span">Address<input name="address" type="text" required><small class="error-message"></small></label>
+            </div>
+            <div class="panel-heading small-heading"><h3>Change Password</h3></div>
+            <div class="form-grid">
+              <label class="field">Current password<input name="currentPassword" type="password"><small class="error-message"></small></label>
+              <label class="field">New password<input name="newPassword" type="password" minlength="6"><small class="error-message"></small></label>
+            </div>
+            <button class="btn btn-primary" type="submit">Save Changes</button>
+          </article>
+        </form>
+      </section>
+    </div>
+
+    <nav class="bottom-nav" aria-label="Mobile navigation">
+      <button class="is-active" data-route="dashboard"><i class="fa-solid fa-chart-line"></i><span>Home</span></button>
+      <button data-route="rentals"><i class="fa-solid fa-bicycle"></i><span>Rent</span></button>
+      <button data-route="rides"><i class="fa-solid fa-route"></i><span>Rides</span></button>
+      <button data-route="payments"><i class="fa-solid fa-wallet"></i><span>Pay</span></button>
+      <button data-route="profile"><i class="fa-solid fa-user"></i><span>Me</span></button>
+    </nav>
+  </div>
+
+  <div id="modal-root" class="modal-root hidden" aria-hidden="true"></div>
+  <div id="toast-root" class="toast-root" aria-live="polite" aria-atomic="true"></div>
+
+  <script src="js/api.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

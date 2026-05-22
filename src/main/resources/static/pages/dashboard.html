@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard | BikeShare</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={theme:{extend:{colors:{app:{bg:'#0f0f0f',card:'#1a1a1a',side:'#111111',border:'#2a2a2a',accent:'#00d4aa',primary:'#f0f0f0',secondary:'#9ca3af',muted:'#6b7280'}}}}}</script>
+</head>
+<body>
+<script src="../js/utils.js"></script>
+<script>
+requireAuth();
+renderAppShell('dashboard','Dashboard','Role based overview of your current system activity.');
+
+const root = document.getElementById('pageContent');
+root.innerHTML = `
+  <section id="stats" class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"></section>
+  <section id="primaryPanel" class="mt-8 rounded-lg border border-white/10 bg-[#171b1f]/85 p-5 shadow-xl shadow-black/20"></section>
+  <section id="secondaryPanel" class="mt-8 rounded-lg border border-white/10 bg-[#171b1f]/85 p-5 shadow-xl shadow-black/20"></section>
+`;
+
+function countBy(items, status) {
+  return items.filter(item => String(item.status || '').toUpperCase() === status).length;
+}
+
+function successPayments(items) {
+  return items.filter(item => String(item.status || '').toUpperCase() === 'SUCCESS');
+}
+
+function sumPayments(items) {
+  return successPayments(items).reduce((sum, payment) => sum + Number(payment.amount || payment.totalAmount || 0), 0);
+}
+
+function simpleTable(headers, rows, emptyMessage) {
+  if (!rows.length) return emptyState(emptyMessage);
+  return `<div class="overflow-x-auto rounded-lg border border-white/10"><table class="w-full text-left text-sm">
+    <thead class="bg-white/[0.03] text-app-secondary"><tr>${headers.map(h => `<th class="p-3 font-semibold">${escapeHtml(h)}</th>`).join('')}</tr></thead>
+    <tbody>${rows.join('')}</tbody>
+  </table></div>`;
+}
+
+function renderBikeRows(bikes) {
+  return simpleTable(['Bike', 'Location', 'Price', 'Status'], bikes.slice(0, 8).map(bike => `
+    <tr class="border-t border-white/10 odd:bg-white/[0.02] hover:bg-white/[0.04]">
+      <td class="p-3 font-semibold">${escapeHtml(bike.title || bike.model || 'Bike')}</td>
+      <td class="p-3 text-app-secondary">${escapeHtml(bike.location || '')}</td>
+      <td class="p-3">${formatCurrency(bike.dailyPrice || 0)} / day</td>
+      <td class="p-3">${getStatusBadge(bike.status)}</td>
+    </tr>`), 'No bikes found.');
+}
+
+function renderRentalRows(rentals) {
+  return simpleTable(['Bike', 'Rider', 'Dates', 'Status'], rentals.slice(0, 8).map(rental => `
+    <tr class="border-t border-white/10 odd:bg-white/[0.02] hover:bg-white/[0.04]">
+      <td class="p-3 font-semibold">${escapeHtml(rental.bikeTitle || rental.bike?.title || 'Bike')}</td>
+      <td class="p-3 text-app-secondary">${escapeHtml(rental.userName || rental.riderName || rental.userId || '')}</td>
+      <td class="p-3 text-app-secondary">${formatDate(rental.plannedStartTime)} - ${formatDate(rental.plannedEndTime)}</td>
+      <td class="p-3">${getStatusBadge(rental.status)}</td>
+    </tr>`), 'No rentals found.');
+}
+
+function renderPaymentRows(payments) {
+  return simpleTable(['For', 'Amount', 'Status', 'Date'], payments.slice(0, 8).map(payment => `
+    <tr class="border-t border-white/10 odd:bg-white/[0.02] hover:bg-white/[0.04]">
+      <td class="p-3 font-semibold">${escapeHtml(payment.bikeTitle || payment.paymentFor || 'Payment')}</td>
+      <td class="p-3">${formatCurrency(payment.amount || 0)}</td>
+      <td class="p-3">${getStatusBadge(payment.status)}</td>
+      <td class="p-3 text-app-secondary">${formatDate(payment.createdAt)}</td>
+    </tr>`), 'No payments found.');
+}
+
+async function loadUserDashboard() {
+  const [bookingsRes, paymentsRes, profileRes] = await Promise.all([
+    apiFetch('/api/shared-rides/my-bookings'),
+    apiFetch('/api/payments/my'),
+    apiFetch('/api/users/profile')
+  ]);
+  const bookings = listFrom(bookingsRes);
+  const payments = listFrom(paymentsRes);
+  const profile = unwrap(profileRes) || {};
+  const paidTotal = sumPayments(payments);
+  const paidBookings = bookings.filter(b => String(b.paymentStatus || '').toUpperCase() === 'SUCCESS').length;
+
+  stats.innerHTML = [
+    card('Joined Rides', bookings.length, 'Shared rides joined'),
+    card('Paid Rides', paidBookings, 'Payment completed'),
+    card('Total Paid', formatCurrency(paidTotal), 'Successful payments'),
+    card('Pending Payments', payments.filter(p => String(p.status).toUpperCase() === 'PENDING').length, 'Needs action')
+  ].join('');
+
+  primaryPanel.innerHTML = `<div class="mb-4 flex items-center justify-between gap-3"><h2 class="text-lg font-bold">My Joined Rides</h2><a href="ride-sharing.html" class="${buttonClass('ghost')}">Open Ride Sharing</a></div>` +
+    simpleTable(['Ride', 'Route', 'Payment', 'Status'], bookings.slice(0, 8).map(booking => `
+      <tr class="border-t border-white/10 odd:bg-white/[0.02] hover:bg-white/[0.04]">
+        <td class="p-3 font-semibold">${escapeHtml(booking.bikeTitle || 'Shared ride')}</td>
+        <td class="p-3 text-app-secondary">${escapeHtml(booking.pickupAddress || '')} -> ${escapeHtml(booking.dropoffAddress || '')}</td>
+        <td class="p-3">${getStatusBadge(booking.paymentStatus)}</td>
+        <td class="p-3">${getStatusBadge(booking.status)}</td>
+      </tr>`), 'No joined rides yet.');
+
+  secondaryPanel.innerHTML = `
+    <div class="mb-4 flex items-center justify-between gap-3"><h2 class="text-lg font-bold">Profile</h2><a href="profile.html" class="${buttonClass()}">Update Profile</a></div>
+    <div class="flex items-center gap-4">
+      <img class="h-20 w-20 rounded-lg border border-white/10 object-cover shadow-lg shadow-black/30" src="${escapeHtml(imageSrc(profile.profileImage, DEFAULT_PROFILE_IMAGE))}" ${imageFallbackAttrs(DEFAULT_PROFILE_IMAGE)} alt="Profile image">
+      <div>
+        <h3 class="font-bold">${escapeHtml(profile.name || localStorage.getItem('username') || 'User')}</h3>
+        <p class="text-sm text-app-secondary">${escapeHtml(profile.email || localStorage.getItem('email') || '')}</p>
+        <p class="mt-2 text-sm text-app-secondary">${escapeHtml(profile.phoneNumber || 'No phone number')}</p>
+      </div>
+    </div>`;
+}
+
+async function loadOwnerDashboard() {
+  const ownerId = currentUserId();
+  const [bikesRes, rentalsRes, paymentsRes] = await Promise.all([
+    apiFetch(`/api/bikes/owner/${ownerId}`),
+    apiFetch('/api/rentals/owner'),
+    apiFetch('/api/payments/owner')
+  ]);
+  const bikes = listFrom(bikesRes);
+  const rentals = listFrom(rentalsRes);
+  const payments = listFrom(paymentsRes);
+
+  stats.innerHTML = [
+    card('My Bikes', bikes.length, 'Added by this owner'),
+    card('Available Bikes', countBy(bikes, 'AVAILABLE'), 'Ready to rent'),
+    card('Maintained Bikes', countBy(bikes, 'MAINTENANCE'), 'Under service'),
+    card('Rented Bikes', countBy(bikes, 'RENTED'), 'Currently rented')
+  ].join('');
+
+  primaryPanel.innerHTML = `<div class="mb-4 flex items-center justify-between gap-3"><h2 class="text-lg font-bold">My Bike Inventory</h2><a href="add-bike.html" class="${buttonClass()}">Add Bike</a></div>${renderBikeRows(bikes)}`;
+  secondaryPanel.innerHTML = `<div class="mb-4 flex items-center justify-between gap-3"><h2 class="text-lg font-bold">Owner Rentals</h2><span class="text-sm text-app-secondary">${formatCurrency(sumPayments(payments))} received</span></div>${renderRentalRows(rentals)}`;
+}
+
+async function loadRiderDashboard() {
+  const [rentalsRes, paymentsRes, createdRes, bookingsRes] = await Promise.all([
+    apiFetch('/api/rentals/my'),
+    apiFetch('/api/payments/my'),
+    apiFetch('/api/shared-rides/my-created'),
+    apiFetch('/api/shared-rides/my-bookings')
+  ]);
+  const rentals = listFrom(rentalsRes);
+  const payments = listFrom(paymentsRes);
+  const created = listFrom(createdRes);
+  const bookings = listFrom(bookingsRes);
+
+  stats.innerHTML = [
+    card('Total Rentals', rentals.length, 'All statuses'),
+    card('Active Rentals', countBy(rentals, 'ACTIVE'), 'Can create rides'),
+    card('Created Shared Rides', created.length, 'Ride share platform'),
+    card('Total Paid', formatCurrency(sumPayments(payments)), 'Successful payments')
+  ].join('');
+
+  primaryPanel.innerHTML = `<div class="mb-4 flex items-center justify-between gap-3"><h2 class="text-lg font-bold">Recent Rentals</h2><a href="rentals.html" class="${buttonClass('ghost')}">Open Rentals</a></div>${renderRentalRows(rentals)}`;
+  secondaryPanel.innerHTML = `<div class="mb-4 flex items-center justify-between gap-3"><h2 class="text-lg font-bold">Ride Sharing</h2><a href="ride-sharing.html" class="${buttonClass()}">Open Ride Sharing</a></div>` +
+    simpleTable(['Type', 'Bike', 'Status', 'Payment'], [
+      ...created.slice(0, 4).map(ride => `<tr class="border-t border-white/10 odd:bg-white/[0.02] hover:bg-white/[0.04]"><td class="p-3">Created</td><td class="p-3 font-semibold">${escapeHtml(ride.bikeTitle || '')}</td><td class="p-3">${getStatusBadge(ride.status)}</td><td class="p-3 text-app-secondary">${formatCurrency(ride.price || 0)}</td></tr>`),
+      ...bookings.slice(0, 4).map(booking => `<tr class="border-t border-white/10 odd:bg-white/[0.02] hover:bg-white/[0.04]"><td class="p-3">Joined</td><td class="p-3 font-semibold">${escapeHtml(booking.bikeTitle || '')}</td><td class="p-3">${getStatusBadge(booking.status)}</td><td class="p-3">${getStatusBadge(booking.paymentStatus)}</td></tr>`)
+    ], 'No ride sharing activity yet.');
+}
+
+async function loadAdminDashboard() {
+  const [bikesRes, rentalsRes, paymentsRes, usersRes, revenueRes, ridesRes] = await Promise.all([
+    apiFetch('/api/bikes'),
+    apiFetch('/api/rentals/admin/all'),
+    apiFetch('/api/payments/admin/all'),
+    apiFetch('/api/users/admin/all'),
+    apiFetch('/api/payments/admin/revenue'),
+    apiFetch('/api/shared-rides/admin/all')
+  ]);
+  const bikes = listFrom(bikesRes);
+  const rentals = listFrom(rentalsRes);
+  const payments = listFrom(paymentsRes);
+  const users = listFrom(usersRes);
+  const rides = listFrom(ridesRes);
+  const revenue = unwrap(revenueRes);
+
+  stats.innerHTML = [
+    card('Users', users.length, 'All registered accounts'),
+    card('Bikes', bikes.length, `${countBy(bikes, 'AVAILABLE')} available`),
+    card('Rentals', rentals.length, `${countBy(rentals, 'ACTIVE')} active`),
+    card('Revenue', formatCurrency(revenue?.totalRevenue ?? revenue ?? sumPayments(payments)), 'Successful payments')
+  ].join('');
+
+  primaryPanel.innerHTML = `<div class="mb-4 flex items-center justify-between gap-3"><h2 class="text-lg font-bold">Platform Bike Status</h2><a href="bikes.html" class="${buttonClass('ghost')}">Manage Bikes</a></div>
+    <div class="grid gap-4 sm:grid-cols-3">
+      ${card('Available', countBy(bikes, 'AVAILABLE'), 'Ready to rent')}
+      ${card('Maintenance', countBy(bikes, 'MAINTENANCE'), 'Needs service')}
+      ${card('Rented', countBy(bikes, 'RENTED'), 'With riders')}
+    </div>`;
+  secondaryPanel.innerHTML = `<div class="mb-4 flex items-center justify-between gap-3"><h2 class="text-lg font-bold">Admin Activity</h2><span class="text-sm text-app-secondary">${rides.length} shared rides</span></div>${renderPaymentRows(payments)}`;
+}
+
+async function load() {
+  try {
+    const role = getUserRole();
+    if (role === 'USER') await loadUserDashboard();
+    else if (role === 'BIKE_OWNER') await loadOwnerDashboard();
+    else if (role === 'ADMIN') await loadAdminDashboard();
+    else await loadRiderDashboard();
+  } catch (e) {
+    showToast(e.message, 'error');
+  }
+}
+
+load();
+</script>
+</body>
+</html>

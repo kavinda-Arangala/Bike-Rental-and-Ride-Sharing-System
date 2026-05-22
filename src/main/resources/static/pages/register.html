@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Register | BikeShare</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={theme:{extend:{colors:{app:{bg:'#0f0f0f',card:'#1a1a1a',side:'#111111',border:'#2a2a2a',accent:'#00d4aa',primary:'#f0f0f0',secondary:'#9ca3af',muted:'#6b7280'}}}}}</script>
+  <style>
+    .auth-grid {
+      background-image:
+        linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px);
+      background-size: 42px 42px;
+      mask-image: linear-gradient(to bottom, black, transparent 88%);
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-[#0b0d0f] text-app-primary">
+<div class="auth-grid pointer-events-none fixed inset-0"></div>
+<main class="relative grid min-h-screen items-center gap-10 p-4 py-10 lg:grid-cols-[1fr_640px] lg:px-16">
+  <section class="hidden max-w-xl lg:block">
+    <div class="mb-8 inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-app-secondary">
+      <span class="h-2 w-2 rounded-full bg-app-accent"></span>
+      Join BikeShare
+    </div>
+    <h1 class="max-w-lg text-5xl font-black leading-tight tracking-normal">
+      Choose how you want to use the platform.
+    </h1>
+    <p class="mt-5 max-w-md text-base leading-7 text-app-secondary">
+      Create a role-based account for ride sharing, bike rentals, or owner fleet management.
+    </p>
+    <div class="mt-10 space-y-3">
+      <div class="rounded-lg border border-white/10 bg-white/[0.04] p-4">
+        <p class="font-bold text-app-primary">User</p>
+        <p class="mt-1 text-sm text-app-secondary">Join shared rides and complete ride payments.</p>
+      </div>
+      <div class="rounded-lg border border-white/10 bg-white/[0.04] p-4">
+        <p class="font-bold text-app-primary">Rider</p>
+        <p class="mt-1 text-sm text-app-secondary">Rent bikes, create shared rides, and review your rental experience.</p>
+      </div>
+      <div class="rounded-lg border border-white/10 bg-white/[0.04] p-4">
+        <p class="font-bold text-app-primary">Bike Owner</p>
+        <p class="mt-1 text-sm text-app-secondary">Add bikes, manage your fleet, and confirm rental payments.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="mx-auto w-full max-w-2xl rounded-lg border border-white/10 bg-[#171b1f]/90 p-8 shadow-2xl shadow-black/40 backdrop-blur">
+    <div class="mb-8">
+      <div class="mb-6 grid h-14 w-14 place-items-center rounded-lg bg-app-accent text-xl font-black text-black shadow-lg shadow-teal-500/20">BR</div>
+      <h2 class="text-3xl font-black tracking-normal">Create Account</h2>
+      <p class="mt-2 text-sm text-app-secondary">Register as User, Rider, or Bike Owner.</p>
+    </div>
+
+    <form id="registerForm" class="space-y-5">
+      <div class="grid gap-4 sm:grid-cols-2">
+        <label>
+          <span class="mb-2 block text-sm font-medium text-app-secondary">Name</span>
+          <input name="name" class="field w-full rounded-lg border border-white/10 bg-[#0f1215] px-4 py-3 text-app-primary outline-none transition focus:border-app-accent focus:ring-2 focus:ring-app-accent/20" required>
+        </label>
+        <label>
+          <span class="mb-2 block text-sm font-medium text-app-secondary">Username</span>
+          <input name="username" autocomplete="username" class="field w-full rounded-lg border border-white/10 bg-[#0f1215] px-4 py-3 text-app-primary outline-none transition focus:border-app-accent focus:ring-2 focus:ring-app-accent/20" required>
+        </label>
+      </div>
+      <label class="block">
+        <span class="mb-2 block text-sm font-medium text-app-secondary">Email</span>
+        <input name="email" type="email" autocomplete="email" class="field w-full rounded-lg border border-white/10 bg-[#0f1215] px-4 py-3 text-app-primary outline-none transition focus:border-app-accent focus:ring-2 focus:ring-app-accent/20" required>
+      </label>
+      <label class="block">
+        <span class="mb-2 block text-sm font-medium text-app-secondary">Account Type</span>
+        <select name="role" class="field w-full rounded-lg border border-white/10 bg-[#0f1215] px-4 py-3 text-app-primary outline-none transition focus:border-app-accent focus:ring-2 focus:ring-app-accent/20">
+          <option value="USER">User</option>
+          <option value="RIDER">Rider</option>
+          <option value="BIKE_OWNER">Bike Owner</option>
+        </select>
+      </label>
+      <div class="rounded-lg border border-app-accent/20 bg-app-accent/5 p-4 text-sm text-app-secondary">
+        <p id="roleHint">Users can access only Ride Sharing and Payments.</p>
+      </div>
+      <div class="grid gap-4 sm:grid-cols-2">
+        <label>
+          <span class="mb-2 block text-sm font-medium text-app-secondary">Password</span>
+          <input name="password" type="password" autocomplete="new-password" class="field w-full rounded-lg border border-white/10 bg-[#0f1215] px-4 py-3 text-app-primary outline-none transition focus:border-app-accent focus:ring-2 focus:ring-app-accent/20" required>
+        </label>
+        <label>
+          <span class="mb-2 block text-sm font-medium text-app-secondary">Confirm Password</span>
+          <input name="confirmPassword" type="password" autocomplete="new-password" class="field w-full rounded-lg border border-white/10 bg-[#0f1215] px-4 py-3 text-app-primary outline-none transition focus:border-app-accent focus:ring-2 focus:ring-app-accent/20" required>
+        </label>
+      </div>
+      <div class="grid gap-2 text-xs text-app-muted sm:grid-cols-2">
+        <p class="rounded-lg border border-white/10 bg-white/[0.03] p-3">At least 8 characters</p>
+        <p class="rounded-lg border border-white/10 bg-white/[0.03] p-3">Uppercase, lowercase, number, and symbol</p>
+      </div>
+      <p id="error" class="hidden rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-100"></p>
+      <button class="w-full rounded-lg bg-app-accent px-4 py-3 font-black text-black shadow-lg shadow-teal-500/20 transition hover:bg-teal-300 focus:outline-none focus:ring-2 focus:ring-app-accent/40">Register</button>
+    </form>
+    <div class="mt-8 flex items-center justify-center gap-2 border-t border-white/10 pt-6 text-sm text-app-secondary">
+      <span>Already registered?</span>
+      <a class="font-bold text-app-accent transition hover:text-teal-300" href="login.html">Login</a>
+    </div>
+  </section>
+</main>
+
+<script src="../js/utils.js"></script>
+<script>
+const hints = {
+  USER: 'Users can access only Ride Sharing and Payments.',
+  RIDER: 'Riders can rent bikes, pay rentals, start rides after owner confirmation, and create shared rides.',
+  BIKE_OWNER: 'Bike Owners can add and manage their own bikes, view rental status, and confirm own rental payments.'
+};
+
+document.querySelector('[name="role"]').addEventListener('change', event => {
+  roleHint.textContent = hints[event.target.value] || hints.USER;
+});
+
+document.getElementById('registerForm').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const err = document.getElementById('error');
+  err.classList.add('hidden');
+
+  const form = Object.fromEntries(new FormData(event.target));
+  const strongPassword = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/.test(form.password);
+
+  if (!strongPassword || form.password !== form.confirmPassword) {
+    err.textContent = !strongPassword ? 'Password does not meet the strength rules.' : 'Passwords do not match.';
+    err.classList.remove('hidden');
+    return;
+  }
+
+  try {
+    await apiFetch('/api/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: form.name,
+        username: form.username,
+        email: form.email,
+        role: form.role,
+        password: form.password
+      })
+    });
+    const login = await apiFetch('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ usernameOrEmail: form.username, password: form.password })
+    });
+    const user = unwrap(login) || {};
+    ['accessToken', 'refreshToken', 'userId', 'username', 'email', 'role'].forEach((key) => localStorage.setItem(key, user[key] || ''));
+    showToast('Account created.');
+    setTimeout(() => location.href = 'dashboard.html', 500);
+  } catch (ex) {
+    err.textContent = ex.message;
+    err.classList.remove('hidden');
+  }
+});
+</script>
+</body>
+</html>

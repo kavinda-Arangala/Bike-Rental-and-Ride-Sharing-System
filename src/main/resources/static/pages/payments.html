@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Payments | BikeShare</title><script src="https://cdn.tailwindcss.com"></script><script>tailwind.config={theme:{extend:{colors:{app:{bg:'#0f0f0f',card:'#1a1a1a',side:'#111111',border:'#2a2a2a',accent:'#00d4aa',primary:'#f0f0f0',secondary:'#9ca3af',muted:'#6b7280'}}}}}</script></head>
+<body><script src="../js/utils.js"></script><script>
+requireAuth();
+renderAppShell('payments','Payments','Payment creation, lookup, admin filtering, refunds, and revenue.');
+let payments = [], rentals = [], sharedBookings = [], adminPaymentRows = [], ownerPaymentRows = [], selectedPayment = null;
+const root = document.getElementById('pageContent');
+root.innerHTML = `
+  <div class="mb-5 flex flex-wrap gap-3"><button id="makeBtn" class="${buttonClass()}">Make Payment</button><button id="refreshBtn" class="${buttonClass('ghost')}">Refresh</button></div>
+  <section id="summary" class="mb-6 grid gap-4 sm:grid-cols-3"></section>
+  <section class="mb-6 rounded-lg border border-app-border bg-app-card p-5">
+    <div class="grid gap-3 md:grid-cols-4"><input id="paymentIdLookup" type="number" class="${inputClass()}" placeholder="Payment ID"><input id="rentalPaymentLookup" type="number" class="${inputClass()}" placeholder="Rental ID"><button id="lookupPayment" class="${buttonClass('ghost')}">Get Payment</button><button id="lookupRentalPayments" class="${buttonClass('ghost')}">Get Rental Payments</button></div>
+  </section>
+  <section id="paymentsList" class="grid gap-4 xl:grid-cols-2"></section>
+  <section id="ownerSection" class="mt-8 hidden rounded-lg border border-app-border bg-app-card p-5">
+    <div class="mb-4 flex items-center justify-between gap-3"><h2 class="text-lg font-bold">Owner Payments</h2><button id="loadOwnerPayments" class="${buttonClass('ghost')}">Load Owner Payments</button></div>
+    <div id="ownerPayments" class="grid gap-4 xl:grid-cols-2"></div>
+  </section>
+  <section id="adminSection" class="mt-8 hidden rounded-lg border border-app-border bg-app-card p-5">
+    <h2 class="mb-4 text-lg font-bold">Admin Payments</h2>
+    <div class="grid gap-3 lg:grid-cols-5"><select id="adminPayMode" class="${inputClass()}"><option value="all">All payments</option><option value="status">By status</option><option value="user">By user ID</option></select><select id="adminPayStatus" class="${inputClass()}"><option>SUCCESS</option><option>FAILED</option><option>PENDING</option><option>REFUNDED</option></select><input id="adminPayUser" type="number" class="${inputClass()}" placeholder="User ID"><button id="loadAdminPayments" class="${buttonClass()}">Load</button><button id="totalRevenue" class="${buttonClass('ghost')}">Total Revenue</button></div>
+    <div class="mt-4 grid gap-3 lg:grid-cols-4"><input id="payStart" type="datetime-local" class="${inputClass()}"><input id="payEnd" type="datetime-local" class="${inputClass()}"><button id="paymentRevenueRange" class="${buttonClass('ghost')}">Revenue Range</button><div id="payRevenueBox" class="rounded-lg border border-app-border bg-[#121212] p-3 text-sm text-app-secondary">Revenue results appear here.</div></div>
+    <div id="adminPayments" class="mt-5 grid gap-4 xl:grid-cols-2"></div>
+  </section>
+  ${modalShell('paymentModal','Make Payment',`<form id="paymentForm" class="space-y-4"><select id="paymentTarget" class="${inputClass()}" required></select><select id="paymentMethod" class="${inputClass()}"><option>CASH</option><option>CARD</option><option>BANK_TRANSFER</option><option>WALLET</option></select><textarea id="note" class="${inputClass()}" rows="3" placeholder="Optional note"></textarea><button class="${buttonClass()}">Submit Payment</button></form>`)}
+  ${modalShell('refundModal','Refund Payment',`<form id="refundForm" class="space-y-4"><textarea id="refundReason" class="${inputClass()}" rows="4" placeholder="Refund reason" required></textarea><button class="${buttonClass('danger')}">Refund</button></form>`)}
+  ${modalShell('paymentDetailModal','Payment Details',`<div id="paymentDetail" class="space-y-2 text-sm"></div>`)}
+`;
+function paidRentalIds() { return new Set(payments.filter(p => ['SUCCESS','PENDING'].includes(String(p.status).toUpperCase())).map(p => String(p.rentalId))); }
+function paidSharedBookingIds() { return new Set(payments.filter(p => ['SUCCESS','PENDING'].includes(String(p.status).toUpperCase())).map(p => String(p.sharedRideBookingId)).filter(Boolean)); }
+function paymentCard(payment, admin = false) {
+  const ownerLine = payment.bikeOwnerName || payment.bikeOwnerId ? ` - Owner ${escapeHtml(payment.bikeOwnerName || payment.bikeOwnerId)}` : '';
+  const reference = payment.paymentFor === 'SHARED_RIDE' ? `Shared ride booking #${escapeHtml(payment.sharedRideBookingId || '')}` : `Rental #${escapeHtml(payment.rentalId || '')}`;
+  return `<article class="rounded-lg border border-app-border bg-app-card p-5"><div class="flex justify-between gap-3"><div><h2 class="text-lg font-bold">${escapeHtml(payment.bikeTitle || 'Bike Payment')}</h2><p class="text-sm text-app-secondary">${reference} - User #${escapeHtml(payment.userId || '')}${ownerLine}</p><p class="mt-1 text-xs text-app-muted">Type: ${escapeHtml(payment.paymentFor || 'RENTAL')} ${payment.rentalStatus ? '- Rental status: ' + escapeHtml(payment.rentalStatus) : ''}</p></div>${getStatusBadge(payment.status)}</div><p class="mt-4 text-2xl font-bold text-app-accent">${formatCurrency(payment.amount)}</p><p class="mt-2 text-sm text-app-secondary">${escapeHtml(payment.paymentMethod || 'Method')} - ${escapeHtml(payment.transactionId || 'No transaction ID')} - ${formatDate(payment.createdAt)}</p>${payment.refundReason ? `<p class="mt-2 text-sm text-orange-200">Refund: ${escapeHtml(payment.refundReason)} ${formatCurrency(payment.refundAmount)}</p>` : ''}<div class="mt-4 flex flex-wrap gap-2"><button data-viewpay="${payment.id}" class="${buttonClass('ghost')}">View</button>${admin && String(payment.status).toUpperCase() === 'SUCCESS' ? `<button data-refund="${payment.id}" class="${buttonClass('danger')}">Refund</button>` : ''}</div></article>`;
+}
+function render() {
+  const total = payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+  const paid = paidRentalIds();
+  const paidShared = paidSharedBookingIds();
+  const unpaidRentals = rentals.filter(r => String(r.status).toUpperCase() === 'PENDING' && !paid.has(String(r.id)));
+  const unpaidShared = sharedBookings.filter(b => String(b.paymentStatus).toUpperCase() !== 'SUCCESS' && !paidShared.has(String(b.id)));
+  summary.innerHTML = [card('My Payments', payments.length, 'Current user'), card('Total Paid', formatCurrency(total), 'My payment history'), card('Pending Payments', unpaidRentals.length + unpaidShared.length, 'Rentals and shared rides')].join('');
+  paymentsList.innerHTML = payments.length ? payments.map(p => paymentCard(p)).join('') : emptyState('No payments yet.');
+  const rentalOptions = unpaidRentals.map(r => `<option value="rental:${r.id}">Rental: ${escapeHtml(r.bikeTitle || 'Rental')} - ${formatCurrency(r.estimatedFare || r.finalFare)}</option>`).join('');
+  const sharedOptions = unpaidShared.map(b => `<option value="shared:${b.id}">Shared Ride: ${escapeHtml(b.bikeTitle || 'Ride')} - ${formatCurrency(b.price)}</option>`).join('');
+  paymentTarget.innerHTML = rentalOptions + sharedOptions || '<option value="">No pending payments</option>';
+}
+function renderAdmin() { const box = document.getElementById('adminPayments'); box.innerHTML = adminPaymentRows.length ? adminPaymentRows.map(p => paymentCard(p, true)).join('') : emptyState('No admin payments for this filter.'); }
+function renderOwner() { ownerPayments.innerHTML = ownerPaymentRows.length ? ownerPaymentRows.map(p => paymentCard(p)).join('') : emptyState('No owner payments yet.'); }
+async function load() { try { const role = getUserRole(); const sharedBookingsRequest = role === 'BIKE_OWNER' ? Promise.resolve({ data: [] }) : apiFetch('/api/shared-rides/my-bookings'); const [pRes, rRes, bRes] = await Promise.all([apiFetch('/api/payments/my'), role === 'USER' ? Promise.resolve({ data: [] }) : apiFetch('/api/rentals/my'), sharedBookingsRequest]); payments = listFrom(pRes); rentals = listFrom(rRes); sharedBookings = listFrom(bRes); render(); if (role === 'ADMIN') await loadAdmin('/api/payments/admin/all'); if (role === 'BIKE_OWNER') await loadOwner(); } catch(e) { showToast(e.message,'error'); } }
+async function loadAdmin(path) { const res = await apiFetch(path); adminPaymentRows = listFrom(res); renderAdmin(); }
+async function loadOwner() { const res = await apiFetch('/api/payments/owner'); ownerPaymentRows = listFrom(res); renderOwner(); }
+function adminPath() { if (adminPayMode.value === 'status') return `/api/payments/admin/status/${adminPayStatus.value}`; if (adminPayMode.value === 'user') return `/api/payments/admin/user/${adminPayUser.value}`; return '/api/payments/admin/all'; }
+if (getUserRole() === 'ADMIN') adminSection.classList.remove('hidden');
+if (getUserRole() === 'BIKE_OWNER') ownerSection.classList.remove('hidden');
+makeBtn.addEventListener('click', () => openModal('paymentModal'));
+refreshBtn.addEventListener('click', load);
+paymentForm.addEventListener('submit', async event => { event.preventDefault(); try { const [type, id] = String(paymentTarget.value || '').split(':'); const body = { paymentMethod: paymentMethod.value, paymentNote: note.value }; if (type === 'rental') body.rentalId = Number(id); if (type === 'shared') body.sharedRideBookingId = Number(id); await apiFetch('/api/payments', { method:'POST', body: JSON.stringify(body) }); closeModal('paymentModal'); showToast('Payment submitted.'); load(); } catch(e) { showToast(e.message,'error'); } });
+lookupPayment.addEventListener('click', async () => { try { const payment = unwrap(await apiFetch(`/api/payments/${paymentIdLookup.value}`)); paymentDetail.innerHTML = Object.entries(payment).map(([k,v]) => `<p><span class="text-app-muted">${escapeHtml(k)}:</span> ${escapeHtml(v ?? '')}</p>`).join(''); openModal('paymentDetailModal'); } catch(e) { showToast(e.message,'error'); } });
+lookupRentalPayments.addEventListener('click', async () => { try { payments = listFrom(await apiFetch(`/api/payments/rental/${rentalPaymentLookup.value}`)); render(); showToast('Rental payments loaded.'); } catch(e) { showToast(e.message,'error'); } });
+document.addEventListener('click', async event => { try { if (event.target.dataset.viewpay) { const payment = unwrap(await apiFetch(`/api/payments/${event.target.dataset.viewpay}`)); paymentDetail.innerHTML = Object.entries(payment).map(([k,v]) => `<p><span class="text-app-muted">${escapeHtml(k)}:</span> ${escapeHtml(v ?? '')}</p>`).join(''); openModal('paymentDetailModal'); } if (event.target.dataset.refund) { selectedPayment = event.target.dataset.refund; openModal('refundModal'); } } catch(e) { showToast(e.message,'error'); } });
+refundForm.addEventListener('submit', async event => { event.preventDefault(); try { await apiFetch('/api/payments/admin/refund', { method:'POST', body: JSON.stringify({ paymentId: Number(selectedPayment), refundReason: refundReason.value }) }); closeModal('refundModal'); showToast('Refund processed.'); load(); } catch(e) { showToast(e.message,'error'); } });
+if (getUserRole() === 'ADMIN') {
+  loadAdminPayments.addEventListener('click', () => loadAdmin(adminPath()).catch(e => showToast(e.message,'error')));
+  totalRevenue.addEventListener('click', async () => { try { const res = await apiFetch('/api/payments/admin/revenue'); payRevenueBox.textContent = `Total payment revenue: ${formatCurrency(unwrap(res))}`; } catch(e) { showToast(e.message,'error'); } });
+  paymentRevenueRange.addEventListener('click', async () => { try { const q = dateRangeQuery(payStart.value, payEnd.value); const res = await apiFetch('/api/payments/admin/revenue/range?' + q); payRevenueBox.textContent = `Range payment revenue: ${formatCurrency(unwrap(res))}`; } catch(e) { showToast(e.message,'error'); } });
+}
+if (getUserRole() === 'BIKE_OWNER') {
+  loadOwnerPayments.addEventListener('click', () => loadOwner().catch(e => showToast(e.message,'error')));
+}
+load();
+</script></body></html>

@@ -16,8 +16,8 @@ import lk.ac.sliit.Bike_Rental_and_Ride_SSharing_System.repository.MessageReposi
 import lk.ac.sliit.Bike_Rental_and_Ride_SSharing_System.repository.RentalRepository;
 import lk.ac.sliit.Bike_Rental_and_Ride_SSharing_System.repository.RideShareRepository;
 import lk.ac.sliit.Bike_Rental_and_Ride_SSharing_System.repository.UserRepository;
-import lk.ac.sliit.Bike_Rental_and_Ride_SSharing_System.service.NotificationService;
 import lk.ac.sliit.Bike_Rental_and_Ride_SSharing_System.service.RideShareService;
+import lk.ac.sliit.Bike_Rental_and_Ride_SSharing_System.service.NotificationService;
 import lk.ac.sliit.Bike_Rental_and_Ride_SSharing_System.util.SecurityUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -39,7 +39,7 @@ public class RideShareServiceImpl implements RideShareService {
     private final NotificationService notificationService;
     private final SecurityUtil        securityUtil;
 
-    // ── Rider: Create Ride-Share Request ──────────────────────────────────────
+    // â”€â”€ Rider: Create Ride-Share Request â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Override
     @Transactional
@@ -88,7 +88,7 @@ public class RideShareServiceImpl implements RideShareService {
         return toResponse(saved, rider.getId());
     }
 
-    // ── Rider: Get My Ride-Shares ─────────────────────────────────────────────
+    // â”€â”€ Rider: Get My Ride-Shares â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Override
     public List<RideShareResponse> getMyRideShares(String username) {
@@ -100,7 +100,7 @@ public class RideShareServiceImpl implements RideShareService {
                 .toList();
     }
 
-    // ── Rider / Owner: Get Single Ride-Share ──────────────────────────────────
+    // â”€â”€ Rider / Owner: Get Single Ride-Share â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Override
     public RideShareResponse getRideShareById(String username, Long rideShareId) {
@@ -109,7 +109,7 @@ public class RideShareServiceImpl implements RideShareService {
         return toResponse(rs, user.getId());
     }
 
-    // ── Rider: Cancel Pending Request ─────────────────────────────────────────
+    // â”€â”€ Rider: Cancel Pending Request â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Override
     @Transactional
@@ -142,7 +142,7 @@ public class RideShareServiceImpl implements RideShareService {
         return toResponse(saved, rider.getId());
     }
 
-    // ── Owner: Get All Ride-Shares For My Bikes ───────────────────────────────
+    // â”€â”€ Owner: Get All Ride-Shares For My Bikes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Override
     public List<RideShareResponse> getOwnerRideShares(String username) {
@@ -154,7 +154,7 @@ public class RideShareServiceImpl implements RideShareService {
                 .toList();
     }
 
-    // ── Owner: Get Only Pending Requests ──────────────────────────────────────
+    // â”€â”€ Owner: Get Only Pending Requests â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Override
     public List<RideShareResponse> getOwnerPendingRideShares(String username) {
@@ -166,7 +166,7 @@ public class RideShareServiceImpl implements RideShareService {
                 .toList();
     }
 
-    // ── Owner: Approve or Reject ──────────────────────────────────────────────
+    // â”€â”€ Owner: Approve or Reject â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Override
     @Transactional
@@ -212,7 +212,7 @@ public class RideShareServiceImpl implements RideShareService {
         return toResponse(rideShareRepository.save(rs), owner.getId());
     }
 
-    // ── Admin: Get All ────────────────────────────────────────────────────────
+    // â”€â”€ Admin: Get All â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Override
     public List<RideShareResponse> getAllRideShares() {
@@ -222,7 +222,7 @@ public class RideShareServiceImpl implements RideShareService {
                 .toList();
     }
 
-    // ── Admin: Filter By Status ───────────────────────────────────────────────
+    // â”€â”€ Admin: Filter By Status â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Override
     public List<RideShareResponse> getRideSharesByStatus(String status) {
@@ -240,7 +240,7 @@ public class RideShareServiceImpl implements RideShareService {
                 .toList();
     }
 
-    // ── Private: Notification helpers ─────────────────────────────────────────
+    // â”€â”€ Private: Notification helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private void notifyOwnerOfNewRequest(RideShare rs, Bike bike) {
         try {
@@ -254,11 +254,11 @@ public class RideShareServiceImpl implements RideShareService {
                     ownerUser,
                     NotificationType.RIDE_SHARE_REQUESTED,
                     NotificationChannel.BOTH,
-                    "New Ride-Share Request 🚲",
+                    "New Ride-Share Request ðŸš²",
                     "<strong>" + riderName + "</strong> has requested to ride your bike " +
                             "<strong>" + bike.getTitle() + "</strong>.<br/>" +
-                            "📍 Pickup: " + rs.getPickupAddress() + "<br/>" +
-                            "📍 Drop-off: " + rs.getDropoffAddress() + "<br/><br/>" +
+                            "ðŸ“ Pickup: " + rs.getPickupAddress() + "<br/>" +
+                            "ðŸ“ Drop-off: " + rs.getDropoffAddress() + "<br/><br/>" +
                             "Please review and approve or reject the request.",
                     rs.getId(), "RIDE_SHARE"
             );
@@ -274,7 +274,7 @@ public class RideShareServiceImpl implements RideShareService {
                     rs.getRider(),
                     NotificationType.RIDE_SHARE_APPROVED,
                     NotificationChannel.BOTH,
-                    "Ride-Share Request Approved ✅",
+                    "Ride-Share Request Approved âœ…",
                     "Your ride-share request for <strong>" + bikeName + "</strong> " +
                             "has been <strong>approved</strong> by the owner!<br/><br/>" +
                             "You can now chat with the owner directly in the system.",
@@ -292,10 +292,10 @@ public class RideShareServiceImpl implements RideShareService {
                     rs.getRider(),
                     NotificationType.RIDE_SHARE_REJECTED,
                     NotificationChannel.BOTH,
-                    "Ride-Share Request Rejected ❌",
+                    "Ride-Share Request Rejected âŒ",
                     "Your ride-share request for <strong>" + bikeName + "</strong> " +
                             "was <strong>rejected</strong> by the owner.<br/>" +
-                            "📝 Reason: " + rs.getRejectionReason() + "<br/><br/>" +
+                            "ðŸ“ Reason: " + rs.getRejectionReason() + "<br/><br/>" +
                             "You may browse other available bikes.",
                     rs.getId(), "RIDE_SHARE"
             );
@@ -327,7 +327,7 @@ public class RideShareServiceImpl implements RideShareService {
         }
     }
 
-    // ── Private: Entity finders ───────────────────────────────────────────────
+    // â”€â”€ Private: Entity finders â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private User findUserOrThrow(String username) {
         return userRepository.findByUsername(username)
@@ -353,13 +353,13 @@ public class RideShareServiceImpl implements RideShareService {
                         "Ride-share not found or you are not a participant: id=" + rideShareId));
     }
 
-    // ── Private: Response mapper ──────────────────────────────────────────────
+    // â”€â”€ Private: Response mapper â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     /**
      * Maps a RideShare entity to RideShareResponse.
      *
      * @param rs     the entity
-     * @param userId the current user's ID — used to calculate unread message count.
+     * @param userId the current user's ID â€” used to calculate unread message count.
      *               Pass null for admin views where unread count is not relevant.
      */
     private RideShareResponse toResponse(RideShare rs, Long userId) {

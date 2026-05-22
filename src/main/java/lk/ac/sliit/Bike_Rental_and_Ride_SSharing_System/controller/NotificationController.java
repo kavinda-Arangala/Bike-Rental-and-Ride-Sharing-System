@@ -21,7 +21,7 @@ public class NotificationController {
 
     private final NotificationService notificationService;
 
-    // ── Rider + Admin endpoints ───────────────────────────────────────────────
+    // â”€â”€ Rider + Admin endpoints â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     /**
      * GET /api/notifications/my
@@ -100,7 +100,7 @@ public class NotificationController {
         return ResponseEntity.ok(ApiResponse.success("Notification deleted", null));
     }
 
-    // ── Admin-only endpoints ──────────────────────────────────────────────────
+    // â”€â”€ Admin-only endpoints â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     /**
      * GET /api/notifications/admin/all
@@ -116,7 +116,7 @@ public class NotificationController {
     /**
      * POST /api/notifications/admin/send
      * Send a manual notification to one user or broadcast to all.
-     * If userId is null → sends to ALL users.
+     * If userId is null â†’ sends to ALL users.
      */
     @PostMapping("/admin/send")
     @PreAuthorize("hasRole('ADMIN')")

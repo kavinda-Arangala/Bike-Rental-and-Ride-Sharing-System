@@ -1,4 +1,4 @@
-package lk.ac.sliit.bike_rental_and_ride_sharing_system;
+package lk.ac.sliit.Bike_Rental_and_Ride_SSharing_System;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;

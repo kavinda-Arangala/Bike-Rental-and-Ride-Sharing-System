@@ -27,7 +27,7 @@ public class NotificationEventListener {
     private static final DateTimeFormatter DATE_FMT =
             DateTimeFormatter.ofPattern("dd MMM yyyy, hh:mm a");
 
-    // ── Rental events ─────────────────────────────────────────────────────────
+    // â”€â”€ Rental events â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     public void onRentalConfirmed(Rental rental) {
         try {
@@ -84,7 +84,7 @@ public class NotificationEventListener {
         }
     }
 
-    // ── Payment events ────────────────────────────────────────────────────────
+    // â”€â”€ Payment events â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     public void onPaymentSuccess(Payment payment) {
         try {
@@ -112,7 +112,7 @@ public class NotificationEventListener {
         }
     }
 
-    // ── User events ───────────────────────────────────────────────────────────
+    // â”€â”€ User events â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     public void onUserRegistered(User user) {
         try {
